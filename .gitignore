@@ -8,4 +8,5 @@ test-results
 .env.*.local
 .DS_Store
 supabase/.temp
+.wrangler
 *.tsbuildinfo

@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="robots" content="noindex" />
+    <title>Opening Partner Schools Hub…</title>
+    <script>
+      (function (location) {
+        var segmentsToKeep = 1
+        var route = location.pathname.split('/').slice(1 + segmentsToKeep).join('/').replace(/&/g, '~and~')
+        var query = location.search ? '&' + location.search.slice(1).replace(/&/g, '~and~') : ''
+        var base = location.pathname.split('/').slice(0, 1 + segmentsToKeep).join('/')
+        location.replace(location.protocol + '//' + location.host + base + '/?/' + route + query + location.hash)
+      })(window.location)
+    </script>
+  </head>
+  <body>Opening Partner Schools Hub…</body>
+</html>

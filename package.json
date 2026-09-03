@@ -13,7 +13,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "check": "npm run lint && npm run test && npm run build"
+    "check:file-api": "WRANGLER_WRITE_LOGS=false wrangler deploy --dry-run --config cloudflare/r2-file-api/wrangler.jsonc --outdir .wrangler/file-api",
+    "deploy:file-api": "wrangler deploy --config cloudflare/r2-file-api/wrangler.jsonc",
+    "check": "npm run lint && npm run test && npm run check:file-api && npm run build"
   },
   "dependencies": {
     "@hookform/resolvers": "5.9.1",
@@ -28,6 +30,7 @@
     "zod": "4.5.4"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260903.1",
     "@eslint/js": "10.0.1",
     "@playwright/test": "1.62.1",
     "@testing-library/jest-dom": "7.0.1",
@@ -42,9 +45,11 @@
     "eslint-plugin-react-refresh": "0.5.5",
     "globals": "17.12.0",
     "jsdom": "30.0.1",
+    "supabase": "^2.116.0",
     "typescript": "6.0.3",
     "typescript-eslint": "8.69.0",
     "vite": "8.2.2",
-    "vitest": "4.1.11"
+    "vitest": "4.1.11",
+    "wrangler": "^4.128.0"
   }
 }

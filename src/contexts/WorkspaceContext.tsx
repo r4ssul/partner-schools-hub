@@ -4,6 +4,7 @@ import type { RealtimeChannel } from '@supabase/supabase-js'
 import { addHours } from 'date-fns'
 import { createInitialWorkspaceData } from '../data/seed'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
+import { isR2FileApiConfigured, uploadFileToR2 } from '../lib/fileApi'
 import { canDeactivateMember, canManageMembership, isTrashExpired } from '../lib/policies'
 import { validateUpload } from '../lib/validation'
 import { PRIMARY_OWNER_EMAIL } from '../lib/identity'
@@ -253,15 +254,23 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     let storagePath = `demo/${documentId}/${file.name}`
 
     if (supabase && workspaceId) {
-      const { data: signed, error: signedError } = await supabase.functions.invoke('file-access', {
-        body: { action: 'create-upload', workspaceId, folderId: Number(targetFolderId), fileName: file.name, mimeType: file.type, sizeBytes: file.size },
-      })
-      if (signedError) return signedError.message
-      const { error: uploadError } = await supabase.storage.from('company-documents').uploadToSignedUrl(signed.path, signed.token, file)
-      if (uploadError) return uploadError.message
-      documentId = String(signed.documentId)
-      versionId = String(signed.versionId)
-      storagePath = signed.path
+      if (isR2FileApiConfigured) {
+        const result = await uploadFileToR2(file, { workspaceId, folderId: Number(targetFolderId) })
+        if (result.error || !result.data) return result.error || 'Unable to upload file.'
+        documentId = String(result.data.documentId)
+        versionId = String(result.data.versionId)
+        storagePath = result.data.path
+      } else {
+        const { data: signed, error: signedError } = await supabase.functions.invoke('file-access', {
+          body: { action: 'create-upload', workspaceId, folderId: Number(targetFolderId), fileName: file.name, mimeType: file.type, sizeBytes: file.size },
+        })
+        if (signedError) return signedError.message
+        const { error: uploadError } = await supabase.storage.from('company-documents').uploadToSignedUrl(signed.path, signed.token, file)
+        if (uploadError) return uploadError.message
+        documentId = String(signed.documentId)
+        versionId = String(signed.versionId)
+        storagePath = signed.path
+      }
     } else {
       setUploadUrls((previous) => new Map(previous).set(documentId, URL.createObjectURL(file)))
     }
@@ -289,14 +298,21 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     let versionId = createId('version')
     const workspaceId = workspaceIdRef.current
     if (supabase && workspaceId) {
-      const { data: signed, error: signedError } = await supabase.functions.invoke('file-access', {
-        body: { action: 'create-version', workspaceId, documentId: Number(documentId), fileName: file.name, mimeType: file.type, sizeBytes: file.size },
-      })
-      if (signedError) return signedError.message
-      const { error: uploadError } = await supabase.storage.from('company-documents').uploadToSignedUrl(signed.path, signed.token, file)
-      if (uploadError) return uploadError.message
-      storagePath = signed.path
-      versionId = String(signed.versionId)
+      if (isR2FileApiConfigured) {
+        const result = await uploadFileToR2(file, { workspaceId, documentId: Number(documentId) })
+        if (result.error || !result.data) return result.error || 'Unable to upload version.'
+        storagePath = result.data.path
+        versionId = String(result.data.versionId)
+      } else {
+        const { data: signed, error: signedError } = await supabase.functions.invoke('file-access', {
+          body: { action: 'create-version', workspaceId, documentId: Number(documentId), fileName: file.name, mimeType: file.type, sizeBytes: file.size },
+        })
+        if (signedError) return signedError.message
+        const { error: uploadError } = await supabase.storage.from('company-documents').uploadToSignedUrl(signed.path, signed.token, file)
+        if (uploadError) return uploadError.message
+        storagePath = signed.path
+        versionId = String(signed.versionId)
+      }
     } else {
       setUploadUrls((previous) => new Map(previous).set(documentId, URL.createObjectURL(file)))
     }

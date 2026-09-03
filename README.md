@@ -11,7 +11,7 @@ npm run dev
 
 Development mode uses an isolated, empty local preview for Jan Baloglu. It stores only records you create in the current browser. Legacy Company Hub demo storage is removed automatically. Production builds explicitly disable this preview and require Supabase authentication.
 
-The local preview now opens on `/login`. Its credentials are stored only in the git-ignored `.env.development.local`; never copy the preview password into a committed file or a `VITE_` variable in Vercel.
+The local preview now opens on `/login`. Its credentials are stored only in the git-ignored `.env.development.local`; never copy the preview password into a committed file.
 
 Quality checks:
 
@@ -33,16 +33,16 @@ The browser suite builds in test mode, enables the isolated preview, and runs at
    supabase link --project-ref YOUR_PROJECT_REF
    supabase db push
    supabase functions deploy manage-members
-   supabase functions deploy file-access
    supabase functions deploy dispatch-notifications --no-verify-jwt
    ```
 
-3. In Supabase Dashboard → Authentication → Users, create and auto-confirm `mcanbaloglu@enishi.ac.jp` with the password supplied by the owner. Add `full_name: Jan Baloglu` to user metadata. Do not put that password in Git or Vercel.
-4. Copy `.env.example` to `.env.local` for local connected development. In Vercel, configure only:
+3. In Supabase Dashboard → Authentication → Users, create and auto-confirm `mcanbaloglu@enishi.ac.jp` with the password supplied by the owner. Add `full_name: Jan Baloglu` to user metadata. Do not put that password in Git.
+4. Copy `.env.example` to `.env.local` for local connected development. In GitHub Actions, configure:
 
    ```text
    VITE_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
    VITE_SUPABASE_PUBLISHABLE_KEY=YOUR_PUBLISHABLE_KEY
+   VITE_R2_FILE_API_URL=https://partner-schools-hub-files.YOUR_SUBDOMAIN.workers.dev
    VITE_APP_TIMEZONE=Asia/Tokyo
    VITE_ENABLE_LOCAL_PREVIEW=false
    ```
@@ -50,13 +50,23 @@ The browser suite builds in test mode, enables the isolated preview, and runs at
 5. Configure Edge Function secrets; never expose these as Vite variables:
 
    ```bash
-   supabase secrets set SUPABASE_SECRET_KEY=... RESEND_API_KEY=... DISPATCH_SECRET=... APP_URL=https://YOUR_DOMAIN EMAIL_FROM='Partner Schools Hub <notifications@YOUR_DOMAIN>'
+   supabase secrets set SUPABASE_SECRET_KEY=... RESEND_API_KEY=... DISPATCH_SECRET=... APP_URL=https://r4ssul.github.io/partner-schools-hub EMAIL_FROM='Partner Schools Hub <notifications@YOUR_DOMAIN>'
    ```
 
 6. Configure Resend as Supabase custom SMTP. Allow only the production `/accept-invite` and `/reset-password` redirect URLs.
 7. Sign in at the deployed `/login` page as `mcanbaloglu@enishi.ac.jp`. The first successful sign-in securely creates the single Partner Schools Hub workspace, assigns Jan the protected `owner` role displayed as **Super Admin**, and creates the standard folders. All subsequent administrators must be invited from Team access.
 8. Schedule `dispatch-notifications` through Supabase Cron using an `x-dispatch-secret` stored in Vault. The database reminder job runs daily at 08:00 Asia/Tokyo.
-9. Import the repository into Vercel, set the production environment variables, and deploy. `vercel.json` supplies SPA rewrites and baseline security headers.
+9. Authenticate Wrangler, create the private R2 bucket, configure the Worker secrets, and deploy the file API:
+
+   ```bash
+   npx wrangler login
+   npx wrangler r2 bucket create partner-schools-hub-files
+   npx wrangler secret put SUPABASE_URL --config cloudflare/r2-file-api/wrangler.jsonc
+   npx wrangler secret put SUPABASE_PUBLISHABLE_KEY --config cloudflare/r2-file-api/wrangler.jsonc
+   npm run deploy:file-api
+   ```
+
+10. Add the Supabase URL, publishable key, and deployed Worker URL as GitHub Actions secrets. Push `main`; GitHub Pages automatically switches from browser-local showcase mode to the shared Supabase and R2 services.
 
 For a showcase, invite each reviewer from Team access so uploads and actions are attributed correctly. If reviewers must share the owner account temporarily, rotate its password immediately after the showcase.
 
@@ -77,8 +87,8 @@ A fresh `E2E_INVITE_URL` and `E2E_INVITED_PASSWORD` enable the invitation-accept
 ## Architecture and security
 
 - React, Vite, TypeScript, React Router, TanStack Query, React Hook Form, and Zod.
-- Supabase Auth, Postgres, RLS, private Storage, Realtime, Edge Functions, and Cron.
-- Private 50 MB document storage with MIME allowlists, immutable versions, short-lived signed access, and file-access auditing.
+- Supabase Auth, Postgres, RLS, Realtime, Edge Functions, and Cron.
+- Private Cloudflare R2 document storage behind an authenticated Worker, with a 50 MB limit, MIME allowlist, immutable versions, membership checks, and file-access auditing.
 - Owner-only membership and audit access with final-owner database protection.
 - Self-service name, organisation, job title, and phone details; invitees must be assigned an organisation by the super administrator.
 - Administrator-managed folders with recoverable 30-day soft deletion; files remain visible from All files if their folder is archived.
@@ -91,6 +101,6 @@ A fresh `E2E_INVITE_URL` and `E2E_INVITED_PASSWORD` enable the invitation-accept
 - Confirm public signup is disabled, SMTP is active, and only trusted redirect URLs are configured.
 - Verify the Tokyo region before the first migration.
 - Run `npm ci`, `npm run check`, `npm audit`, `supabase test db`, and the live browser suite.
-- Confirm Vercel preview and production environments use separate Supabase projects.
+- Confirm GitHub Pages has the Supabase and R2 endpoint secrets and no longer builds in showcase mode.
 - Configure backups, provider alerts, Cron, and secret rotation.
 - Confirm production contains only Jan Baloglu and the standard folders before inviting other administrators.

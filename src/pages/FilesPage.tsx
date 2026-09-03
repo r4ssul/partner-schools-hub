@@ -5,6 +5,7 @@ import { FileGlyph } from '../components/FileGlyph'
 import { Modal } from '../components/Modal'
 import { useWorkspace } from '../contexts/WorkspaceContext'
 import { formatDateTime } from '../lib/date'
+import { downloadFileFromR2, isR2FileApiConfigured } from '../lib/fileApi'
 import { supabase } from '../lib/supabase'
 import type { EntityKind, Folder as HubFolder, HubDocument } from '../types'
 
@@ -51,6 +52,26 @@ export default function FilesPage() {
     if (localUrl) { window.open(localUrl, '_blank', 'noopener,noreferrer'); return }
     if (supabase) {
       const version = document.versions.at(-1)
+      if (isR2FileApiConfigured && version) {
+        const previewable = version.mimeType === 'application/pdf' || version.mimeType.startsWith('image/') || version.mimeType.startsWith('text/')
+        const previewWindow = previewable ? window.open('', '_blank') : null
+        if (previewWindow) previewWindow.opener = null
+        const result = await downloadFileFromR2(Number(version.id))
+        if (result.error || !result.url) {
+          previewWindow?.close()
+          setMessage(result.error || 'Unable to download this file.')
+          return
+        }
+        if (previewWindow) previewWindow.location.href = result.url
+        else {
+          const anchor = window.document.createElement('a')
+          anchor.href = result.url
+          anchor.download = document.name
+          anchor.click()
+        }
+        window.setTimeout(() => URL.revokeObjectURL(result.url!), 60_000)
+        return
+      }
       const { data: access, error } = await supabase.functions.invoke('file-access', { body: { action: 'create-download', documentId: Number(document.id), versionId: Number(version?.id) } })
       if (!error && access?.url) { window.open(access.url, '_blank', 'noopener,noreferrer'); return }
       setMessage(error?.message || 'Unable to create a secure download link.')

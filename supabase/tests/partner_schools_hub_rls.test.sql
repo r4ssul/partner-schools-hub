@@ -1,5 +1,5 @@
 begin;
-select plan(26);
+select plan(29);
 
 select ok((select relrowsecurity from pg_class where oid = 'public.workspaces'::regclass), 'workspaces has RLS enabled');
 select ok((select relrowsecurity from pg_class where oid = 'public.documents'::regclass), 'documents has RLS enabled');
@@ -15,6 +15,9 @@ select is((select public.is_workspace_member(-1)), false, 'unknown workspace mem
 select is((select public.is_workspace_owner(-1)), false, 'unknown workspace ownership is denied');
 select has_function('public', 'bootstrap_workspace', array['text'], 'workspace bootstrap function exists');
 select has_function('public', 'create_due_reminders', array[]::text[], 'reminder function exists');
+select has_column('public', 'document_versions', 'storage_provider', 'document versions identify their storage provider');
+select has_function('public', 'register_r2_upload', array['bigint','bigint','bigint','text','text','text','bigint'], 'R2 upload registration function exists');
+select has_function('public', 'get_r2_download', array['bigint'], 'R2 download authorization function exists');
 select ok((select public from storage.buckets where id = 'company-documents') = false, 'document bucket is private');
 select ok(not has_table_privilege('anon', 'public.documents', 'select'), 'anonymous users cannot read documents');
 select ok(not has_table_privilege('anon', 'public.tasks', 'select'), 'anonymous users cannot read tasks');
