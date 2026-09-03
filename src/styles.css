@@ -48,7 +48,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--teal-700); box-s
 button:focus-visible, a:focus-visible { outline: 3px solid rgba(36, 145, 153, .34); outline-offset: 2px; }
 
 .visually-hidden { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0, 0, 0, 0) !important; white-space: nowrap !important; border: 0 !important; }
-.skip-link { position: fixed; z-index: 1000; top: 8px; left: 8px; padding: 8px 12px; background: #fff; color: var(--teal-900); transform: translateY(-150%); border-radius: 6px; }
+.skip-link { position: fixed; z-index: 1000; top: 8px; left: 8px; min-height: 44px; display: inline-flex; align-items: center; padding: 8px 12px; background: #fff; color: var(--teal-900); transform: translateY(-150%); border-radius: 6px; }
 .skip-link:focus { transform: translateY(0); }
 
 .button { min-height: 42px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid transparent; border-radius: 8px; padding: 0 16px; font-size: 13px; font-weight: 650; letter-spacing: .005em; white-space: nowrap; transition: background .16s ease, border-color .16s ease, transform .16s ease, box-shadow .16s ease; }
@@ -644,7 +644,8 @@ main { min-height: calc(100vh - 170px); }
   .surface-toolbar { min-height: 58px; padding: 0 13px; }
   .surface-toolbar .search-field { width: 130px; min-width: 0; }
   .file-table--full .file-table__header { display: none; }
-  .file-table--full .file-row { grid-template-columns: minmax(0,1fr) 38px; min-height: 67px; padding: 0 11px; }
+  .file-table--full .file-row { grid-template-columns: minmax(0,1fr) 44px; min-height: 67px; padding: 0 11px; }
+  .file-table--full .file-name--button { min-height: 44px; }
   .file-table--full .file-row > span:nth-child(2), .file-table--full .file-row > span:nth-child(3), .file-table--full .file-row > span:nth-child(4) { display: none; }
   .calendar-toolbar { grid-template-columns: 1fr auto; }
   .calendar-toolbar h2 { justify-self: end; }

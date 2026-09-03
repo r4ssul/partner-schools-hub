@@ -1,5 +1,5 @@
 begin;
-select plan(29);
+select plan(30);
 
 select ok((select relrowsecurity from pg_class where oid = 'public.workspaces'::regclass), 'workspaces has RLS enabled');
 select ok((select relrowsecurity from pg_class where oid = 'public.documents'::regclass), 'documents has RLS enabled');
@@ -10,6 +10,7 @@ select ok((select relrowsecurity from pg_class where oid = 'public.quick_links':
 select ok((select relrowsecurity from pg_class where oid = 'public.audit_log'::regclass), 'audit log has RLS enabled');
 select has_column('public', 'profiles', 'organization', 'profiles capture member organisations');
 select has_column('public', 'profiles', 'job_title', 'profiles capture member job titles');
+select is((select count(*)::integer from pg_constraint where conname = 'workspace_members_profile_fkey' and conrelid = 'public.workspace_members'::regclass and contype = 'f'), 1, 'workspace members expose their profile relationship');
 select ok(has_column_privilege('authenticated', 'public.profiles', 'organization', 'UPDATE'), 'authenticated users can request organisation updates under RLS');
 select is((select public.is_workspace_member(-1)), false, 'unknown workspace membership is denied');
 select is((select public.is_workspace_owner(-1)), false, 'unknown workspace ownership is denied');
