@@ -93,7 +93,7 @@ async function functionErrorMessage(reason: unknown, fallback: string) {
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
   const [data, setData] = useState<WorkspaceData>(loadLocalData)
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(Boolean(supabase && user))
   const [error, setError] = useState<string | null>(null)
   const [uploadUrls, setUploadUrls] = useState(() => new Map<string, string>())
   const workspaceIdRef = useRef<number | null>(null)

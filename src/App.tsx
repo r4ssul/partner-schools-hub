@@ -22,11 +22,16 @@ function LoadingScreen() {
   return <div className="loading-screen" role="status"><img src={`${import.meta.env.BASE_URL}assets/partner-schools-hub-mark.png`} alt="" /><span>Loading Partner Schools Hub…</span></div>
 }
 
+function WorkspaceApp() {
+  const { loading } = useWorkspace()
+  return loading ? <LoadingScreen /> : <AppShell />
+}
+
 function ProtectedApp() {
   const { user, loading } = useAuth()
   if (loading) return <LoadingScreen />
   if (!user) return <Navigate to="/login" replace />
-  return <WorkspaceProvider><AppShell /></WorkspaceProvider>
+  return <WorkspaceProvider><WorkspaceApp /></WorkspaceProvider>
 }
 
 function OwnerRoute({ children }: { children: React.ReactNode }) {
