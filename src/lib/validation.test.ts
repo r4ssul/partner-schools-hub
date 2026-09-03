@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createItemSchema, MAX_FILE_BYTES, memberInvitationSchema, memberProfileSchema, validateUpload } from './validation'
+import { createItemSchema, loginSchema, MAX_FILE_BYTES, memberInvitationSchema, memberProfileSchema, validateUpload } from './validation'
 
 describe('createItemSchema', () => {
   it('accepts a complete task', () => {
@@ -23,6 +23,13 @@ describe('member profile validation', () => {
     expect(memberProfileSchema.safeParse({ name: 'Jan Baloglu', organization: '', jobTitle: '', phone: '' }).success).toBe(false)
     expect(memberInvitationSchema.safeParse({ name: 'Casey Nguyen', email: 'casey@example.com', organization: 'Horizon School', jobTitle: 'Principal', role: 'admin' }).success).toBe(true)
     expect(memberInvitationSchema.safeParse({ name: 'Casey Nguyen', email: 'casey@example.com', organization: 'Horizon School', jobTitle: 'Principal', role: 'owner' }).success).toBe(false)
+  })
+})
+
+describe('login validation', () => {
+  it('allows an existing account to submit any non-empty password to Supabase', () => {
+    expect(loginSchema.safeParse({ email: 'admin@example.com', password: '62664' }).success).toBe(true)
+    expect(loginSchema.safeParse({ email: 'admin@example.com', password: '' }).success).toBe(false)
   })
 })
 
