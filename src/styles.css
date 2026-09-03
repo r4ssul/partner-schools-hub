@@ -276,7 +276,7 @@ main { min-height: calc(100vh - 170px); }
 .empty-state p { margin: 0 0 17px; font-size: 13px; }
 .toast-message { min-height: 42px; display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; border: 1px solid #ead2a7; border-radius: 8px; padding: 0 13px; background: #fff8e9; color: #775728; font-size: 12px; }
 .toast-message.is-success { border-color: #addbcd; background: var(--green-bg); color: #1a6e5d; }
-.toast-message button { border: 0; background: none; color: inherit; font-size: 11px; font-weight: 650; }
+.toast-message button { min-width: 44px; min-height: 44px; display: inline-grid; place-items: center; padding: 0 8px; border: 0; background: none; color: inherit; font-size: 11px; font-weight: 650; }
 
 /* Calendar */
 .calendar-layout { display: grid; grid-template-columns: minmax(0,1fr) 285px; gap: 15px; }
