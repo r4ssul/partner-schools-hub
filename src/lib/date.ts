@@ -2,6 +2,11 @@ import { formatDistanceToNowStrict, parseISO } from 'date-fns'
 
 export const APP_TIMEZONE = import.meta.env.VITE_APP_TIMEZONE || 'Asia/Tokyo'
 
+// Japan Standard Time has no daylight-saving changes.
+export function fromTokyoInput(value: string) {
+  return new Date(`${value.length === 10 ? `${value}T00:00` : value}+09:00`).toISOString()
+}
+
 export function formatDate(iso: string, options?: Intl.DateTimeFormatOptions) {
   return new Intl.DateTimeFormat('en-US', {
     timeZone: APP_TIMEZONE,

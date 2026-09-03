@@ -8,7 +8,7 @@ interface ManageMemberRequest {
   email?: string
   organization?: string
   jobTitle?: string
-  role?: 'admin' | 'super_admin'
+  role?: 'admin'
   userId?: string
 }
 
@@ -31,7 +31,7 @@ Deno.serve(async (request) => {
   let body: ManageMemberRequest
   try { body = await request.json() } catch { return json({ error: 'Invalid request body' }, 400) }
   const { data: owner } = await admin.from('workspace_members').select('role,active').eq('workspace_id', body.workspaceId).eq('user_id', authData.user.id).single()
-  if (!owner?.active || owner.role !== 'owner') return json({ error: 'Only the super administrator can manage access' }, 403)
+  if (!owner?.active || !['owner', 'super_admin'].includes(owner.role)) return json({ error: 'Only the Owner or Super Admin can manage access' }, 403)
 
   if (body.action === 'invite' || body.action === 'resend') {
     if (!body.email || !body.name || !body.organization) return json({ error: 'Name, email and organisation are required' }, 400)
@@ -40,7 +40,7 @@ Deno.serve(async (request) => {
     const organization = body.organization.trim()
     const jobTitle = body.jobTitle?.trim() || ''
     const role = body.role || 'admin'
-    if (!['admin', 'super_admin'].includes(role)) return json({ error: 'Invalid invitation role' }, 400)
+    if (role !== 'admin') return json({ error: 'Invalid invitation role' }, 400)
     if (name.length < 2 || name.length > 120 || organization.length < 2 || organization.length > 120 || jobTitle.length > 120) {
       return json({ error: 'Invitation details are outside the allowed length' }, 400)
     }
@@ -52,7 +52,7 @@ Deno.serve(async (request) => {
     if (workspace.error) return json({ error: workspace.error.message }, 400)
     const inviterName = inviterProfile.data?.full_name || authData.user.email || 'A workspace owner'
     const inviterOrganization = inviterProfile.data?.organization || workspace.data.name
-    const roleLabel = role === 'super_admin' ? 'Super Admin' : 'Admin'
+    const roleLabel = 'Admin'
     const { data: invitation, error } = await admin.auth.admin.inviteUserByEmail(email, {
       redirectTo: `${appUrl}/accept-invite`,
       data: {
@@ -81,7 +81,7 @@ Deno.serve(async (request) => {
     if (!body.userId) return json({ error: 'User ID is required' }, 400)
     const { data: target } = await admin.from('workspace_members').select('role,profiles(full_name)').eq('workspace_id', body.workspaceId).eq('user_id', body.userId).single()
     if (!target) return json({ error: 'Member not found' }, 404)
-    if (target.role === 'owner') return json({ error: 'The super administrator cannot be deactivated' }, 400)
+    if (target.role !== 'admin') return json({ error: 'The Owner and Super Admin cannot be deactivated' }, 400)
     const { error: updateError } = await admin.from('workspace_members').update({ active: false }).eq('workspace_id', body.workspaceId).eq('user_id', body.userId)
     if (updateError) return json({ error: updateError.message }, 400)
     await admin.auth.admin.updateUserById(body.userId, { ban_duration: '876000h' })

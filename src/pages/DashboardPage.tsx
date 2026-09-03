@@ -6,6 +6,7 @@ import { Avatar } from '../components/Avatar'
 import { FileGlyph } from '../components/FileGlyph'
 import { Panel } from '../components/Panel'
 import { StatusSelect } from '../components/StatusSelect'
+import { ChatPanel } from '../components/TeamChat'
 import { useWorkspace } from '../contexts/WorkspaceContext'
 import { formatDate, formatTime } from '../lib/date'
 import type { EntityKind, HubEvent, Meeting, Task } from '../types'
@@ -121,6 +122,7 @@ export default function DashboardPage() {
         <MeetingsPanel meetings={meetings} tasks={tasks} openCreate={openCreate} />
         <TasksPanel tasks={tasks} openCreate={openCreate} />
         <SecureAccess />
+        <ChatPanel />
       </div>
     </div>
   )

@@ -3,7 +3,7 @@ import { z } from 'zod'
 export const createItemSchema = z
   .object({
     kind: z.enum(['file', 'folder', 'event', 'meeting', 'task', 'link']),
-    title: z.string().trim().min(2, 'Enter at least 2 characters').max(120),
+    title: z.string().trim().max(120),
     description: z.string().trim().max(2000).optional(),
     startDate: z.string().optional(),
     endDate: z.string().optional(),
@@ -20,12 +20,15 @@ export const createItemSchema = z
     sourceEventId: z.string().nullable().optional(),
   })
   .superRefine((data, ctx) => {
+    if (data.kind !== 'file' && data.title.length < 2) ctx.addIssue({ code: 'custom', path: ['title'], message: 'Enter at least 2 characters' })
     if (data.kind === 'link') {
-      const result = z.string().url().safeParse(data.url)
+      const result = z.string().url().regex(/^https?:\/\//i).safeParse(data.url)
       if (!result.success) ctx.addIssue({ code: 'custom', path: ['url'], message: 'Enter a valid URL' })
     }
-    if ((data.kind === 'event' || data.kind === 'meeting') && !data.startDate) {
-      ctx.addIssue({ code: 'custom', path: ['startDate'], message: 'Choose a start date' })
+    if (data.kind === 'event' || data.kind === 'meeting') {
+      if (!data.startDate || !Number.isFinite(Date.parse(data.startDate))) ctx.addIssue({ code: 'custom', path: ['startDate'], message: 'Choose a valid start date' })
+      if (!data.endDate || !Number.isFinite(Date.parse(data.endDate))) ctx.addIssue({ code: 'custom', path: ['endDate'], message: 'Choose a valid end date' })
+      else if (data.startDate && data.endDate <= data.startDate) ctx.addIssue({ code: 'custom', path: ['endDate'], message: 'End time must be after the start time' })
     }
     if (data.kind === 'task' && !data.dueDate) {
       ctx.addIssue({ code: 'custom', path: ['dueDate'], message: 'Choose a due date' })
@@ -46,7 +49,7 @@ export const memberProfileSchema = z.object({
 
 export const memberInvitationSchema = memberProfileSchema.pick({ name: true, organization: true, jobTitle: true }).extend({
   email: z.string().trim().email('Enter a valid email address'),
-  role: z.enum(['admin', 'super_admin']),
+  role: z.literal('admin'),
 })
 
 export const ALLOWED_FILE_TYPES = new Set([

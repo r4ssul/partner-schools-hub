@@ -32,7 +32,7 @@ jobs:
         run: npm ci
       - name: Build production site
         env:
-          VITE_ENABLE_LOCAL_PREVIEW: ${{ secrets.VITE_SUPABASE_URL == '' }}
+          VITE_ENABLE_LOCAL_PREVIEW: 'false'
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
           VITE_R2_FILE_API_URL: ${{ secrets.VITE_R2_FILE_API_URL }}

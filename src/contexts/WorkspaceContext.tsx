@@ -7,6 +7,7 @@ import { isSupabaseConfigured, supabase } from '../lib/supabase'
 import { isR2FileApiConfigured, uploadFileToR2 } from '../lib/fileApi'
 import { canClearAuditLog, canDeactivateMember, canManageMembership, canViewAuditLog, isTrashExpired } from '../lib/policies'
 import { validateUpload } from '../lib/validation'
+import { fromTokyoInput } from '../lib/date'
 import { PRIMARY_OWNER_EMAIL } from '../lib/identity'
 import type {
   AuditEntry,
@@ -28,6 +29,7 @@ const LEGACY_STORAGE_KEYS = ['company-hub:workspace:v1', 'partner-schools-hub:wo
 
 interface WorkspaceContextValue {
   data: WorkspaceData
+  workspaceId: number | null
   currentUser: Member
   loading: boolean
   error: string | null
@@ -97,6 +99,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null)
   const [uploadUrls, setUploadUrls] = useState(() => new Map<string, string>())
   const workspaceIdRef = useRef<number | null>(null)
+  const [workspaceId, setWorkspaceId] = useState<number | null>(null)
+  const refreshRef = useRef<() => Promise<void>>(async () => {})
 
   useEffect(() => {
     if (!isSupabaseConfigured) localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
@@ -146,6 +150,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       if (firstError) throw new Error(firstError.message)
       if (!active) return
       setError(null)
+      setWorkspaceId(workspaceId)
 
       const remoteMembers: Member[] = (profiles.data ?? []).map((row) => {
         const profile = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles
@@ -178,15 +183,20 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       })
     }
 
+    const refresh = async () => {
+      try { await loadRemote() } catch (reason) { if (active) setError(reason instanceof Error ? reason.message : 'Unable to refresh the workspace') }
+    }
+    refreshRef.current = refresh
     void loadRemote().then(() => {
       const workspaceId = workspaceIdRef.current
       if (!workspaceId || !active) return
       channel = client.channel(`partner-schools-hub-${workspaceId}`)
       for (const table of ['folders', 'documents', 'document_versions', 'events', 'meetings', 'tasks', 'quick_links', 'notifications']) {
-        channel = channel.on('postgres_changes', { event: '*', schema: 'public', table, filter: `workspace_id=eq.${workspaceId}` }, () => { void loadRemote() })
+        channel = channel.on('postgres_changes', { event: '*', schema: 'public', table, filter: `workspace_id=eq.${workspaceId}` }, () => { void refresh() })
       }
-      channel = channel.on('postgres_changes', { event: '*', schema: 'public', table: 'workspace_members', filter: `workspace_id=eq.${workspaceId}` }, () => { void loadRemote() })
-      channel = channel.on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => { void loadRemote() })
+      channel = channel.on('postgres_changes', { event: '*', schema: 'public', table: 'workspace_members', filter: `workspace_id=eq.${workspaceId}` }, () => { void refresh() })
+      channel = channel.on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => { void refresh() })
+      channel = channel.on('system', {}, (payload) => { if (payload.extension === 'postgres_changes' && payload.status === 'ok') void refresh() })
       void channel.subscribe()
     }).catch((reason: unknown) => {
       if (active) setError(reason instanceof Error ? reason.message : 'Unable to load the workspace')
@@ -210,34 +220,19 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   const addItem = useCallback(async (input: NewItemInput) => {
     const now = new Date().toISOString()
-    const start = input.startDate ? new Date(input.startDate).toISOString() : now
-    const end = input.endDate ? new Date(input.endDate).toISOString() : addHours(new Date(start), 1).toISOString()
+    const start = input.startDate ? fromTokyoInput(input.startDate) : now
+    const end = input.endDate ? fromTokyoInput(input.endDate) : addHours(new Date(start), 1).toISOString()
     const workspaceId = workspaceIdRef.current
 
-    if (supabase && workspaceId) {
-      const numericDocuments = (input.documentIds ?? []).map(Number).filter(Number.isFinite)
-      if (input.kind === 'event') {
-        const { data: created, error: insertError } = await supabase.from('events').insert({ workspace_id: workspaceId, title: input.title, description: input.description || '', starts_at: start, ends_at: end, location: input.location || '', document_ids: numericDocuments, created_by: currentUser.id }).select('id').single()
-        if (insertError) throw insertError
-        const attendees = input.attendeeIds?.length ? input.attendeeIds : [currentUser.id]
-        const { error: attendeeError } = await supabase.from('event_attendees').insert(attendees.map((userId) => ({ event_id: created.id, user_id: userId, workspace_id: workspaceId })))
-        if (attendeeError) throw attendeeError
-      } else if (input.kind === 'meeting') {
-        const { data: created, error: insertError } = await supabase.from('meetings').insert({ workspace_id: workspaceId, title: input.title, agenda: input.description || '', minutes: '', starts_at: start, ends_at: end, location: input.location || '', document_ids: numericDocuments, status: 'upcoming', created_by: currentUser.id }).select('id').single()
-        if (insertError) throw insertError
-        const attendees = input.attendeeIds?.length ? input.attendeeIds : [currentUser.id]
-        const { error: attendeeError } = await supabase.from('meeting_attendees').insert(attendees.map((userId) => ({ meeting_id: created.id, user_id: userId, workspace_id: workspaceId })))
-        if (attendeeError) throw attendeeError
-      } else if (input.kind === 'folder') {
-        const { error: insertError } = await supabase.from('folders').insert({ workspace_id: workspaceId, name: input.title, parent_id: input.parentId ? Number(input.parentId) : null, created_by: currentUser.id })
-        if (insertError) throw insertError
-      } else if (input.kind === 'task') {
-        const { error: insertError } = await supabase.from('tasks').insert({ workspace_id: workspaceId, title: input.title, notes: input.description || '', due_at: input.dueDate ? new Date(input.dueDate).toISOString() : now, assignee_id: input.assigneeId || currentUser.id, status: 'to_do', priority: input.priority || 'medium', source_meeting_id: input.sourceMeetingId ? Number(input.sourceMeetingId) : null, source_event_id: input.sourceEventId ? Number(input.sourceEventId) : null, created_by: currentUser.id })
-        if (insertError) throw insertError
-      } else if (input.kind === 'link') {
-        const { error: insertError } = await supabase.from('quick_links').insert({ workspace_id: workspaceId, title: input.title, description: input.description || '', url: input.url, category: input.category || 'General', created_by: currentUser.id })
-        if (insertError) throw insertError
-      }
+    if (supabase) {
+      if (!workspaceId) throw new Error('Workspace is not ready. Please try again.')
+      const { error: createError } = await supabase.rpc('create_workspace_item', {
+        target_workspace_id: workspaceId,
+        item: { ...input, startDate: start, endDate: end, dueDate: input.dueDate ? fromTokyoInput(input.dueDate) : now },
+      })
+      if (createError) throw new Error(createError.message)
+      await refreshRef.current()
+      return
     }
 
     setData((previous) => {
@@ -250,7 +245,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       } else if (input.kind === 'meeting') {
         next = { ...previous, meetings: [...previous.meetings, { ...base, title: input.title, agenda: input.description || '', minutes: '', startsAt: start, endsAt: end, location: input.location || '', attendeeIds: input.attendeeIds?.length ? input.attendeeIds : [currentUser.id], documentIds: input.documentIds ?? [], status: 'upcoming' }] }
       } else if (input.kind === 'task') {
-        next = { ...previous, tasks: [...previous.tasks, { ...base, title: input.title, assigneeId: input.assigneeId || currentUser.id, dueAt: input.dueDate ? new Date(input.dueDate).toISOString() : now, status: 'to_do', priority: input.priority || 'medium', notes: input.description || '', sourceMeetingId: input.sourceMeetingId ?? null, sourceEventId: input.sourceEventId ?? null, documentIds: input.documentIds ?? [] }] }
+        next = { ...previous, tasks: [...previous.tasks, { ...base, title: input.title, assigneeId: input.assigneeId || currentUser.id, dueAt: input.dueDate ? fromTokyoInput(input.dueDate) : now, status: 'to_do', priority: input.priority || 'medium', notes: input.description || '', sourceMeetingId: input.sourceMeetingId ?? null, sourceEventId: input.sourceEventId ?? null, documentIds: input.documentIds ?? [] }] }
       } else if (input.kind === 'link') {
         next = { ...previous, links: [...previous.links, { ...base, title: input.title, url: input.url || '#', description: input.description || '', category: input.category || 'General' }] }
       }
@@ -300,7 +295,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       deletedAt: null,
       versions: [{ id: versionId, version: 1, storagePath, size: file.size, mimeType: file.type, uploadedBy: currentUser.id, createdAt: now }],
     }
-    setData((previous) => addAudit({ ...previous, documents: [document, ...previous.documents] }, 'uploaded', 'file', file.name))
+    setData((previous) => addAudit({ ...previous, documents: [document, ...previous.documents.filter((item) => item.id !== document.id)] }, 'uploaded', 'file', file.name))
     return null
   }, [addAudit, currentUser.id, data.folders])
 
@@ -396,14 +391,17 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const updateSettings = useCallback(async (name: string, emailNotifications: boolean) => {
     if (supabase && workspaceIdRef.current) {
       const preferenceUpdate = supabase.from('notification_preferences').upsert({ workspace_id: workspaceIdRef.current, user_id: currentUser.id, email_enabled: emailNotifications }, { onConflict: 'workspace_id,user_id' })
-      if (currentUser.role === 'owner') {
+      if (canManageMembership(currentUser.role)) {
         const workspaceUpdate = supabase.from('workspaces').update({ name }).eq('id', workspaceIdRef.current)
-        await Promise.all([preferenceUpdate, workspaceUpdate])
+        const results = await Promise.all([preferenceUpdate, workspaceUpdate])
+        const failure = results.find((result) => result.error)?.error
+        if (failure) throw new Error(failure.message)
       } else {
-        await preferenceUpdate
+        const result = await preferenceUpdate
+        if (result.error) throw new Error(result.error.message)
       }
     }
-    setData((previous) => ({ ...previous, settings: { ...previous.settings, name, emailNotifications } }))
+    setData((previous) => ({ ...previous, settings: { ...previous.settings, name: canManageMembership(currentUser.role) ? name : previous.settings.name, emailNotifications } }))
   }, [currentUser.id, currentUser.role])
 
   const updateProfile = useCallback(async (profile: MemberProfileInput) => {
@@ -424,7 +422,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   }, [currentUser.id])
 
   const inviteMember = useCallback(async (name: string, email: string, organization: string, jobTitle: string, role: InvitableMemberRole) => {
-    if (!canManageMembership(currentUser.role)) return 'Only the owner can invite people.'
+    if (!canManageMembership(currentUser.role)) return 'Only the Owner or Super Admin can invite people.'
     if (supabase && workspaceIdRef.current) {
       const { error: inviteError } = await supabase.functions.invoke('manage-members', { body: { action: 'invite', workspaceId: workspaceIdRef.current, name, email, organization, jobTitle, role } })
       return inviteError ? await functionErrorMessage(inviteError, 'Unable to send the invitation.') : null
@@ -435,10 +433,10 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   }, [addAudit, currentUser.role])
 
   const deactivateMember = useCallback(async (memberId: string) => {
-    if (!canManageMembership(currentUser.role)) return 'Only the owner can deactivate people.'
+    if (!canManageMembership(currentUser.role)) return 'Only the Owner or Super Admin can deactivate people.'
     const member = data.members.find((candidate) => candidate.id === memberId)
     if (!member) return 'Member not found.'
-    if (!canDeactivateMember(currentUser.role, member, data.members)) return 'The final owner cannot be deactivated.'
+    if (!canDeactivateMember(currentUser.role, member, data.members)) return 'The Owner and Super Admin cannot be deactivated.'
     if (supabase && workspaceIdRef.current) {
       const { error: deactivateError } = await supabase.functions.invoke('manage-members', { body: { action: 'deactivate', workspaceId: workspaceIdRef.current, userId: memberId } })
       if (deactivateError) return deactivateError.message
@@ -448,7 +446,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   }, [addAudit, currentUser.role, data.members])
 
   const clearAuditLog = useCallback(async (scope: 'activity' | 'members') => {
-    if (!canClearAuditLog(currentUser.role)) return { error: 'Only an owner or super admin can clear logs.', deleted: 0 }
+    if (!canClearAuditLog(currentUser.role)) return { error: 'Only the Owner can clear logs.', deleted: 0 }
     let deleted = data.audit.filter((entry) => scope === 'members' ? entry.entityKind === 'member' : entry.entityKind !== 'member').length
     if (supabase && workspaceIdRef.current) {
       const { data: deletedRows, error: clearError } = await supabase.rpc('clear_workspace_log', {
@@ -482,7 +480,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
   }, [])
 
-  const value = useMemo(() => ({ data, currentUser, loading, error, uploadUrls, addItem, uploadFile, addDocumentVersion, updateTaskStatus, updateMeetingNotes, archiveItem, restoreItem, markNotificationRead, updateSettings, updateProfile, inviteMember, deactivateMember, clearAuditLog, trash, resetLocalPreview }), [data, currentUser, loading, error, uploadUrls, addItem, uploadFile, addDocumentVersion, updateTaskStatus, updateMeetingNotes, archiveItem, restoreItem, markNotificationRead, updateSettings, updateProfile, inviteMember, deactivateMember, clearAuditLog, trash, resetLocalPreview])
+  const value = useMemo(() => ({ data, workspaceId, currentUser, loading, error, uploadUrls, addItem, uploadFile, addDocumentVersion, updateTaskStatus, updateMeetingNotes, archiveItem, restoreItem, markNotificationRead, updateSettings, updateProfile, inviteMember, deactivateMember, clearAuditLog, trash, resetLocalPreview }), [data, workspaceId, currentUser, loading, error, uploadUrls, addItem, uploadFile, addDocumentVersion, updateTaskStatus, updateMeetingNotes, archiveItem, restoreItem, markNotificationRead, updateSettings, updateProfile, inviteMember, deactivateMember, clearAuditLog, trash, resetLocalPreview])
 
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>
 }

@@ -1,5 +1,5 @@
 export type MemberRole = 'owner' | 'super_admin' | 'admin'
-export type InvitableMemberRole = Exclude<MemberRole, 'owner'>
+export type InvitableMemberRole = 'admin'
 export type TaskStatus = 'to_do' | 'in_progress' | 'done'
 export type TaskPriority = 'low' | 'medium' | 'high'
 export type MeetingStatus = 'upcoming' | 'in_progress' | 'complete'

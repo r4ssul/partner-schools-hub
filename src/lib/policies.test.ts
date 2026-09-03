@@ -7,18 +7,19 @@ const admin: Member = { id: 'admin', name: 'Admin', email: 'admin@example.com', 
 const superAdmin: Member = { ...admin, id: 'super-admin', name: 'Super Admin', role: 'super_admin' }
 
 describe('membership permissions', () => {
-  it('reserves membership management for owners', () => {
+  it('allows both leadership roles to manage membership', () => {
     expect(canManageMembership('owner')).toBe(true)
-    expect(canManageMembership('super_admin')).toBe(false)
+    expect(canManageMembership('super_admin')).toBe(true)
     expect(canManageMembership('admin')).toBe(false)
   })
 
-  it('allows owners and super admins to review and clear logs', () => {
+  it('allows leadership to review logs, but only owners to clear them', () => {
     expect(canViewAuditLog('owner')).toBe(true)
     expect(canViewAuditLog('super_admin')).toBe(true)
     expect(canViewAuditLog('admin')).toBe(false)
     expect(canClearAuditLog('owner')).toBe(true)
-    expect(canClearAuditLog('super_admin')).toBe(true)
+    expect(canClearAuditLog('super_admin')).toBe(false)
+    expect(canClearAuditLog('admin')).toBe(false)
     expect(memberRoleLabel('owner')).toBe('Owner')
     expect(memberRoleLabel('super_admin')).toBe('Super Admin')
   })
@@ -26,7 +27,8 @@ describe('membership permissions', () => {
   it('protects the final active owner', () => {
     expect(canDeactivateMember('owner', owner, [owner, admin])).toBe(false)
     expect(canDeactivateMember('owner', admin, [owner, admin])).toBe(true)
-    expect(canDeactivateMember('owner', superAdmin, [owner, superAdmin])).toBe(true)
+    expect(canDeactivateMember('owner', superAdmin, [owner, superAdmin])).toBe(false)
+    expect(canDeactivateMember('super_admin', admin, [owner, superAdmin, admin])).toBe(true)
     expect(canDeactivateMember('admin', admin, [owner, admin])).toBe(false)
   })
 })

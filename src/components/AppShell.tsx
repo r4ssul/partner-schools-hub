@@ -3,11 +3,13 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { Activity, Bell, CalendarDays, CheckSquare2, ChevronDown, FileText, Home, Link2, LogOut, Menu, Plus, Search, Settings, Trash2, UserCog, UsersRound, X } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useWorkspace } from '../contexts/WorkspaceContext'
-import { canViewAuditLog, memberRoleLabel } from '../lib/policies'
+import { canManageMembership, canViewAuditLog, memberRoleLabel } from '../lib/policies'
 import type { EntityKind } from '../types'
 import { AddItemDialog } from './AddItemDialog'
 import { Avatar } from './Avatar'
 import { Brand } from './Brand'
+import { MessageCircle } from 'lucide-react'
+import { useChat } from '../contexts/ChatContext'
 
 const navItems = [
   { to: '/', label: 'Home', icon: Home },
@@ -16,6 +18,7 @@ const navItems = [
   { to: '/meetings', label: 'Meetings', icon: UsersRound },
   { to: '/tasks', label: 'Tasks', icon: CheckSquare2 },
   { to: '/links', label: 'Links', icon: Link2 },
+  { to: '/chat', label: 'Chat', icon: MessageCircle },
 ]
 
 const addKinds: Array<{ kind: EntityKind; label: string }> = [
@@ -26,6 +29,7 @@ const addKinds: Array<{ kind: EntityKind; label: string }> = [
 export function AppShell() {
   const { signOut } = useAuth()
   const { currentUser, data, markNotificationRead, error } = useWorkspace()
+  const { unread: unreadChat } = useChat()
   const navigate = useNavigate()
   const [addOpen, setAddOpen] = useState(false)
   const [addKind, setAddKind] = useState<EntityKind>('task')
@@ -89,18 +93,18 @@ export function AppShell() {
           </div>
           <div className="menu-anchor user-anchor">
             <button className="user-button" onClick={() => { setUserOpen((value) => !value); setAddMenuOpen(false); setNotificationsOpen(false) }} aria-expanded={userOpen} aria-haspopup="menu"><Avatar member={currentUser} /><span><strong>{currentUser.name}</strong><small>{memberRoleLabel(currentUser.role)}</small></span><ChevronDown size={16} /></button>
-            {userOpen ? <div className="dropdown user-menu" role="menu"><button role="menuitem" onClick={() => { navigate('/settings'); setUserOpen(false) }}><Settings size={17} />Account settings</button>{currentUser.role === 'owner' ? <button role="menuitem" onClick={() => { navigate('/admin/users'); setUserOpen(false) }}><UserCog size={17} />Manage users</button> : null}{canViewAuditLog(currentUser.role) ? <button role="menuitem" onClick={() => { navigate('/admin/audit'); setUserOpen(false) }}><Activity size={17} />Audit log</button> : null}<button role="menuitem" onClick={() => { navigate('/trash'); setUserOpen(false) }}><Trash2 size={17} />Trash</button><button role="menuitem" onClick={() => void signOut()}><LogOut size={17} />Sign out</button></div> : null}
+            {userOpen ? <div className="dropdown user-menu" role="menu"><button role="menuitem" onClick={() => { navigate('/settings'); setUserOpen(false) }}><Settings size={17} />Account settings</button>{canManageMembership(currentUser.role) ? <button role="menuitem" onClick={() => { navigate('/admin/users'); setUserOpen(false) }}><UserCog size={17} />Manage users</button> : null}{canViewAuditLog(currentUser.role) ? <button role="menuitem" onClick={() => { navigate('/admin/audit'); setUserOpen(false) }}><Activity size={17} />Audit log</button> : null}<button role="menuitem" onClick={() => { navigate('/trash'); setUserOpen(false) }}><Trash2 size={17} />Trash</button><button role="menuitem" onClick={() => void signOut()}><LogOut size={17} />Sign out</button></div> : null}
           </div>
           <button className="icon-button icon-button--inverse mobile-menu-button" onClick={() => setMobileMenu((value) => !value)} aria-label="Open navigation">{mobileMenu ? <X /> : <Menu />}</button>
         </div>
       </header>
       <nav className={mobileMenu ? 'primary-nav is-open' : 'primary-nav'} aria-label="Primary navigation">
-        {navItems.map(({ to, label, icon: Icon }) => <NavLink key={to} to={to} end={to === '/'} onClick={closeMenus}><Icon size={20} strokeWidth={1.8} /><span>{label}</span></NavLink>)}
+        {navItems.map(({ to, label, icon: Icon }) => <NavLink key={to} to={to} end={to === '/'} onClick={closeMenus}><Icon size={20} strokeWidth={1.8} /><span>{label}</span>{to === '/chat' && unreadChat > 0 ? <span className="chat-nav-badge" aria-label={unreadChat + ' unread messages'}>{unreadChat > 99 ? '99+' : unreadChat}</span> : null}</NavLink>)}
       </nav>
       {error ? <div className="environment-banner" role="status">Unable to reach the shared workspace. Showing the last local snapshot. {error}</div> : null}
       <main id="main-content" tabIndex={-1}><Outlet context={{ openCreate }} /></main>
       <footer className="site-footer"><span>© {new Date().getFullYear()} Partner Schools Hub</span><span>Private workspace · Asia/Tokyo</span><button onClick={() => navigate('/settings')}>Security & settings</button></footer>
-      <nav className="mobile-bottom-nav" aria-label="Mobile navigation">{navItems.map(({ to, label, icon: Icon }) => <NavLink key={to} to={to} end={to === '/'}><Icon size={22} /><span>{label}</span></NavLink>)}</nav>
+      <nav className="mobile-bottom-nav" aria-label="Mobile navigation">{navItems.map(({ to, label, icon: Icon }) => <NavLink key={to} to={to} end={to === '/'}><Icon size={22} /><span>{label}</span>{to === '/chat' && unreadChat > 0 ? <span className="chat-nav-badge" aria-label={unreadChat + ' unread messages'}>{unreadChat > 99 ? '99+' : unreadChat}</span> : null}</NavLink>)}</nav>
       {addOpen ? <AddItemDialog key={`${addKind}-${addSourceMeetingId ?? 'general'}`} open initialKind={addKind} sourceMeetingId={addSourceMeetingId} onClose={() => { setAddOpen(false); setAddSourceMeetingId(null) }} /> : null}
       {searchOpen ? <div className="search-overlay" role="dialog" aria-modal="true" aria-label="Search Partner Schools Hub" onMouseDown={(event) => { if (event.target === event.currentTarget) setSearchOpen(false) }}><div className="search-dialog"><div className="search-input"><Search size={20} /><input ref={searchRef} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search files, events, meetings, tasks and links…" aria-label="Search all workspace content" /><button className="icon-button" onClick={() => setSearchOpen(false)} aria-label="Close search"><X size={19} /></button></div><div className="search-results" aria-live="polite">{query.length < 2 ? <p>Type at least two characters to search.</p> : results.length ? results.map((item, index) => <button key={`${item.meta}-${item.label}-${index}`} onClick={() => { navigate(item.to); setSearchOpen(false); setQuery('') }}><span>{item.label}</span><small>{item.meta}</small></button>) : <p>No results found.</p>}</div></div></div> : null}
     </div>

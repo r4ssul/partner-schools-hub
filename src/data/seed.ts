@@ -1,5 +1,5 @@
 import type { WorkspaceData } from '../types'
-import { PRIMARY_OWNER_EMAIL } from '../lib/identity'
+import { PRIMARY_OWNER_EMAIL, SUPER_ADMIN_EMAIL } from '../lib/identity'
 
 const SUPER_ADMIN_ID = 'jan-baloglu'
 
@@ -11,14 +11,15 @@ export function createInitialWorkspaceData(): WorkspaceData {
       {
         id: SUPER_ADMIN_ID,
         name: 'Jan Baloglu',
-        email: PRIMARY_OWNER_EMAIL,
-        organization: '',
-        jobTitle: '',
+        email: SUPER_ADMIN_EMAIL,
+        organization: 'Enishi International School',
+        jobTitle: 'Super Administrator',
         phone: '',
-        role: 'owner',
+        role: 'super_admin',
         color: '#0b6b6d',
         active: true,
       },
+      { id: 'rassul-abzhapparov', name: 'Rassul Abzhapparov', email: PRIMARY_OWNER_EMAIL, organization: 'Enishi International School', jobTitle: 'Owner', phone: '', role: 'owner', color: '#0b6b6d', active: true },
     ],
     settings: { name: 'Partner Schools Hub', timezone: 'Asia/Tokyo', emailNotifications: true },
     folders: [

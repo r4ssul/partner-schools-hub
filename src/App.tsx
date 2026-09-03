@@ -3,7 +3,8 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppShell } from './components/AppShell'
 import { useAuth } from './contexts/AuthContext'
 import { WorkspaceProvider, useWorkspace } from './contexts/WorkspaceContext'
-import { canViewAuditLog } from './lib/policies'
+import { canManageMembership, canViewAuditLog } from './lib/policies'
+import { ChatProvider } from './contexts/ChatContext'
 
 const DashboardPage = lazy(() => import('./pages/DashboardPage'))
 const FilesPage = lazy(() => import('./pages/FilesPage'))
@@ -11,6 +12,7 @@ const CalendarPage = lazy(() => import('./pages/CalendarPage'))
 const MeetingsPage = lazy(() => import('./pages/MeetingsPage'))
 const TasksPage = lazy(() => import('./pages/TasksPage'))
 const LinksPage = lazy(() => import('./pages/LinksPage'))
+const ChatPage = lazy(() => import('./pages/ChatPage'))
 const UsersPage = lazy(() => import('./pages/UsersPage'))
 const TrashPage = lazy(() => import('./pages/TrashPage'))
 const SettingsPage = lazy(() => import('./pages/SettingsPage'))
@@ -23,8 +25,11 @@ function LoadingScreen() {
 }
 
 function WorkspaceApp() {
-  const { loading } = useWorkspace()
-  return loading ? <LoadingScreen /> : <AppShell />
+  const { loading, error } = useWorkspace()
+  const { signOut } = useAuth()
+  if (loading) return <LoadingScreen />
+  if (error) return <div className="loading-screen"><h1>Workspace unavailable</h1><p role="alert">{error}</p><button className="button button--primary" onClick={() => window.location.reload()}>Try again</button><button className="text-button" onClick={() => void signOut()}>Sign out</button></div>
+  return <ChatProvider><AppShell /></ChatProvider>
 }
 
 function ProtectedApp() {
@@ -34,9 +39,9 @@ function ProtectedApp() {
   return <WorkspaceProvider><WorkspaceApp /></WorkspaceProvider>
 }
 
-function OwnerRoute({ children }: { children: React.ReactNode }) {
+function ManagerRoute({ children }: { children: React.ReactNode }) {
   const { currentUser } = useWorkspace()
-  return currentUser.role === 'owner' ? children : <Navigate to="/" replace />
+  return canManageMembership(currentUser.role) ? children : <Navigate to="/" replace />
 }
 
 function AuditRoute({ children }: { children: React.ReactNode }) {
@@ -58,9 +63,10 @@ function App() {
           <Route path="meetings" element={<MeetingsPage />} />
           <Route path="tasks" element={<TasksPage />} />
           <Route path="links" element={<LinksPage />} />
+          <Route path="chat" element={<ChatPage />} />
           <Route path="trash" element={<TrashPage />} />
           <Route path="settings" element={<SettingsPage />} />
-          <Route path="admin/users" element={<OwnerRoute><UsersPage /></OwnerRoute>} />
+          <Route path="admin/users" element={<ManagerRoute><UsersPage /></ManagerRoute>} />
           <Route path="admin/audit" element={<AuditRoute><AuditPage /></AuditRoute>} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

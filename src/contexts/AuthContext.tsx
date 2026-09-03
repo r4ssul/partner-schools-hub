@@ -25,7 +25,7 @@ const AuthContext = createContext<AuthContextValue | null>(null)
 const LOCAL_SESSION_KEY = 'partner-schools-hub:preview-session'
 const previewEmail = (import.meta.env.VITE_PREVIEW_LOGIN_EMAIL as string | undefined)?.trim() || PRIMARY_OWNER_EMAIL
 const previewPassword = (import.meta.env.VITE_PREVIEW_LOGIN_PASSWORD as string | undefined) || ''
-const LOCAL_PREVIEW_USER: AuthUser = { id: 'jan-baloglu', email: previewEmail }
+const LOCAL_PREVIEW_USER: AuthUser = { id: previewEmail.toLowerCase() === PRIMARY_OWNER_EMAIL ? 'rassul-abzhapparov' : 'jan-baloglu', email: previewEmail }
 
 function loadPreviewSession() {
   if (!isLocalPreviewEnabled) return null

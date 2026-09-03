@@ -3,14 +3,18 @@ import type { Member, MemberRole } from '../types'
 export const TRASH_RETENTION_DAYS = 30
 
 export function canManageMembership(role: MemberRole) {
-  return role === 'owner'
+  return role === 'owner' || role === 'super_admin'
 }
+
+export const canManageWorkspace = canManageMembership
 
 export function canViewAuditLog(role: MemberRole) {
   return role === 'owner' || role === 'super_admin'
 }
 
-export const canClearAuditLog = canViewAuditLog
+export function canClearAuditLog(role: MemberRole) {
+  return role === 'owner'
+}
 
 export function memberRoleLabel(role: MemberRole) {
   if (role === 'owner') return 'Owner'
@@ -20,8 +24,7 @@ export function memberRoleLabel(role: MemberRole) {
 
 export function canDeactivateMember(actorRole: MemberRole, target: Member, members: Member[]) {
   if (!canManageMembership(actorRole) || !target.active) return false
-  if (target.role !== 'owner') return true
-  return members.filter((member) => member.active && member.role === 'owner').length > 1
+  return target.role === 'admin' && members.some((member) => member.active && member.role === 'owner')
 }
 
 export function isTrashExpired(deletedAt: string, now = new Date(), retentionDays = TRASH_RETENTION_DAYS) {
