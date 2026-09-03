@@ -84,7 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const requestPasswordReset = useCallback(async (email: string) => {
     if (!supabase) return isLocalPreviewEnabled ? 'Password recovery is unavailable in showcase mode.' : 'Password recovery is unavailable until Supabase is configured.'
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
+      redirectTo: new URL(`${import.meta.env.BASE_URL}reset-password`, window.location.origin).toString(),
     })
     return error?.message ?? null
   }, [])

@@ -15,7 +15,7 @@ major_version = 17
 enabled = true
 port = 54323
 
-[inbucket]
+[local_smtp]
 enabled = true
 port = 54324
 
@@ -25,10 +25,28 @@ file_size_limit = "50MiB"
 
 [auth]
 enabled = true
-site_url = "http://127.0.0.1:5173"
-additional_redirect_urls = ["http://127.0.0.1:5173/accept-invite", "http://127.0.0.1:5173/reset-password"]
+site_url = "https://r4ssul.github.io/partner-schools-hub/"
+additional_redirect_urls = [
+  "https://r4ssul.github.io/partner-schools-hub/accept-invite",
+  "https://r4ssul.github.io/partner-schools-hub/reset-password",
+  "http://127.0.0.1:5173/accept-invite",
+  "http://127.0.0.1:5173/reset-password"
+]
 enable_signup = false
 minimum_password_length = 10
+
+[auth.email]
+enable_signup = false
+double_confirm_changes = true
+enable_confirmations = true
+secure_password_change = true
+max_frequency = "1m"
+otp_length = 8
+otp_expiry = 3600
+
+[auth.mfa.totp]
+enroll_enabled = true
+verify_enabled = true
 
 [functions.manage-members]
 verify_jwt = true
