@@ -1,10 +1,3 @@
-interface Env {
-  FILES: R2Bucket
-  SUPABASE_URL: string
-  SUPABASE_PUBLISHABLE_KEY: string
-  ALLOWED_ORIGINS: string
-}
-
 interface AuthenticatedUser {
   id: string
 }
@@ -53,6 +46,15 @@ function json(request: Request, env: Env, body: unknown, status = 200) {
   const headers = responseHeaders(request, env)
   headers.set('Content-Type', 'application/json; charset=utf-8')
   return new Response(JSON.stringify(body), { status, headers })
+}
+
+function logError(message: string, error: unknown, request: Request) {
+  console.error(JSON.stringify({
+    message,
+    error: error instanceof Error ? error.message : String(error),
+    method: request.method,
+    path: new URL(request.url).pathname,
+  }))
 }
 
 function safeName(value: string) {
@@ -111,16 +113,19 @@ async function upload(request: Request, env: Env) {
   const folderId = positiveInteger(request.headers.get('X-Folder-Id'))
   const documentId = positiveInteger(request.headers.get('X-Document-Id'))
   const size = nonNegativeInteger(request.headers.get('X-File-Size'))
+  const contentLength = nonNegativeInteger(request.headers.get('Content-Length'))
   const mimeType = request.headers.get('Content-Type') || ''
   let fileName: string
   try { fileName = decodeURIComponent(request.headers.get('X-File-Name') || '') } catch { return json(request, env, { error: 'Invalid file name' }, 400) }
-  if (!workspaceId || (!folderId && !documentId) || size === null || !fileName || !request.body) return json(request, env, { error: 'File metadata is incomplete' }, 400)
-  if (size > MAX_FILE_BYTES) return json(request, env, { error: 'Files must be 50 MB or smaller' }, 413)
+  if (!workspaceId || (!folderId && !documentId) || size === null || contentLength === null || !fileName || !request.body) return json(request, env, { error: 'File metadata is incomplete' }, 400)
+  if (size > MAX_FILE_BYTES || contentLength > MAX_FILE_BYTES) return json(request, env, { error: 'Files must be 50 MB or smaller' }, 413)
+  if (contentLength !== size) return json(request, env, { error: 'File size headers did not match' }, 400)
   if (!ALLOWED_MIME_TYPES.has(mimeType)) return json(request, env, { error: 'Unsupported file type' }, 415)
   try {
     const isMember = await rpc<boolean>(env, session.auth, 'is_workspace_member', { target_workspace_id: workspaceId })
     if (!isMember) return json(request, env, { error: 'Workspace access denied' }, 403)
-  } catch {
+  } catch (error) {
+    logError('Workspace membership check failed', error, request)
     return json(request, env, { error: 'Unable to verify workspace access' }, 403)
   }
 
@@ -150,7 +155,8 @@ async function upload(request: Request, env: Env) {
       versionNumber: registered.version_number,
       path: objectKey,
     })
-  } catch {
+  } catch (error) {
+    logError('R2 upload registration failed', error, request)
     await env.FILES.delete(objectKey)
     return json(request, env, { error: 'Unable to register the uploaded file' }, 400)
   }
@@ -164,7 +170,8 @@ async function download(request: Request, env: Env) {
   let record: DownloadRecord
   try {
     record = await rpc<DownloadRecord>(env, session.auth, 'get_r2_download', { target_version_id: versionId })
-  } catch {
+  } catch (error) {
+    logError('R2 download authorization failed', error, request)
     return json(request, env, { error: 'File not found or access denied' }, 404)
   }
   if (!record?.object_key) return json(request, env, { error: 'File not found' }, 404)
@@ -190,7 +197,8 @@ export default {
       if (path === '/download' && request.method === 'GET') return await download(request, env)
       if (path === '/health' && request.method === 'GET') return json(request, env, { ok: true })
       return json(request, env, { error: 'Not found' }, 404)
-    } catch {
+    } catch (error) {
+      logError('Unhandled file service error', error, request)
       return json(request, env, { error: 'File service unavailable' }, 500)
     }
   },

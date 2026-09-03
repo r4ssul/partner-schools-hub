@@ -2,7 +2,8 @@
   "$schema": "../../node_modules/wrangler/config-schema.json",
   "name": "partner-schools-hub-files",
   "main": "src/index.ts",
-  "compatibility_date": "2026-09-01",
+  "compatibility_date": "2026-09-03",
+  "compatibility_flags": ["nodejs_compat"],
   "r2_buckets": [
     {
       "binding": "FILES",
@@ -11,5 +12,15 @@
   ],
   "vars": {
     "ALLOWED_ORIGINS": "https://r4ssul.github.io,http://127.0.0.1:5173,http://127.0.0.1:5174"
+  },
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "head_sampling_rate": 1
+    },
+    "traces": {
+      "enabled": true,
+      "head_sampling_rate": 0.05
+    }
   }
 }

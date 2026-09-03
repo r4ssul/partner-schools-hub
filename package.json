@@ -13,7 +13,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "check:file-api": "WRANGLER_WRITE_LOGS=false wrangler deploy --dry-run --config cloudflare/r2-file-api/wrangler.jsonc --outdir .wrangler/file-api",
+    "types:file-api": "WRANGLER_WRITE_LOGS=false wrangler types --check cloudflare/r2-file-api/src/worker-configuration.d.ts --config cloudflare/r2-file-api/wrangler.jsonc",
+    "check:file-api": "npm run types:file-api && WRANGLER_WRITE_LOGS=false wrangler deploy --dry-run --config cloudflare/r2-file-api/wrangler.jsonc --outdir .wrangler/file-api",
     "deploy:file-api": "wrangler deploy --config cloudflare/r2-file-api/wrangler.jsonc",
     "check": "npm run lint && npm run test && npm run check:file-api && npm run build"
   },
@@ -30,7 +31,6 @@
     "zod": "4.5.4"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^5.20260903.1",
     "@eslint/js": "10.0.1",
     "@playwright/test": "1.62.1",
     "@testing-library/jest-dom": "7.0.1",
