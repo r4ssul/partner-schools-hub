@@ -18,7 +18,7 @@ const LoginPage = lazy(() => import('./pages/LoginPage'))
 const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'))
 
 function LoadingScreen() {
-  return <div className="loading-screen" role="status"><img src="/assets/partner-schools-hub-mark.png" alt="" /><span>Loading Partner Schools Hub…</span></div>
+  return <div className="loading-screen" role="status"><img src={`${import.meta.env.BASE_URL}assets/partner-schools-hub-mark.png`} alt="" /><span>Loading Partner Schools Hub…</span></div>
 }
 
 function ProtectedApp() {
