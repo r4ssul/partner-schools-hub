@@ -74,13 +74,13 @@ export default function UsersPage() {
           <div className={member.active ? 'member-row' : 'member-row is-inactive'} key={member.id}>
             <Avatar member={member} />
             <span className="member-identity"><strong>{member.name}{member.id === currentUser.id ? <small className="you-label">You</small> : null}</strong><small className="member-organization"><Building2 size={12} /> {member.organization || 'Organisation not provided'}{member.jobTitle ? ` · ${member.jobTitle}` : ''}</small><small className="member-email">{member.email}</small></span>
-            <span className={`role-label role-label--${member.role}`}>{memberRoleLabel(member.role)}</span>
+            <span className={`role-label role-label--${member.role}`}>{memberRoleLabel(member.role, member.email)}</span>
             <span className={member.active ? 'member-status is-active' : 'member-status'}>{member.active ? 'Active' : 'Deactivated'}</span>
             {canDeactivateMember(currentUser.role, member, data.members) ? <button className="button button--danger button--small" disabled={deactivatingId === member.id} onClick={() => void deactivate(member.id, member.name)}>{deactivatingId === member.id ? <LoaderCircle className="spin" size={16} /> : <UserMinus size={16} />} {deactivatingId === member.id ? 'Deactivating' : 'Deactivate'}</button> : <span />}
           </div>
         ))}</div>
       </section>
-      <section className="content-surface security-copy"><UsersRound size={26} /><div><h2>Access model</h2><p>The Owner and Super Admin manage members, workspace settings, and shared content. Only the Owner can clear logs. All other members are Admins and can manage shared content and use team chat.</p></div></section>
+      <section className="content-surface security-copy"><UsersRound size={26} /><div><h2>Access model</h2><p>Rassul (Web. Developer) and Jan (Super Admin) have the same management access to members, workspace settings, audit logs, and shared content. Only Rassul can clear logs. All other members are Admins and can manage shared content and use team chat.</p></div></section>
       <Modal open={open} title="Invite a team member" description="Invite them to this private workspace with a secure activation link." onClose={closeInvite}>
         <form className="form-grid invite-form" onSubmit={submit} noValidate aria-busy={submitting}>
           <label className="field field--full"><span>Full name</span><input value={name} onChange={(event) => setName(event.target.value)} autoComplete="name" autoFocus /></label>

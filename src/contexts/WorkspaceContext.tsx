@@ -8,7 +8,7 @@ import { isR2FileApiConfigured, uploadFileToR2 } from '../lib/fileApi'
 import { canClearAuditLog, canDeactivateMember, canManageMembership, canViewAuditLog, isTrashExpired } from '../lib/policies'
 import { validateUpload } from '../lib/validation'
 import { fromTokyoInput } from '../lib/date'
-import { PRIMARY_OWNER_EMAIL } from '../lib/identity'
+import { INITIAL_SUPER_ADMIN_EMAIL } from '../lib/identity'
 import type {
   AuditEntry,
   EntityKind,
@@ -119,7 +119,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         .eq('user_id', user!.id)
         .eq('active', true)
         .maybeSingle()
-      if (!membership.error && !membership.data && user!.email.toLowerCase() === PRIMARY_OWNER_EMAIL) {
+      if (!membership.error && !membership.data && user!.email.toLowerCase() === INITIAL_SUPER_ADMIN_EMAIL) {
         const bootstrap = await client.rpc('bootstrap_workspace', { workspace_name: 'Partner Schools Hub' })
         if (bootstrap.error) throw new Error(bootstrap.error.message)
         membership = await client
@@ -134,7 +134,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       workspaceIdRef.current = workspaceId
       const [workspace, profiles, folders, documents, events, meetings, tasks, links, notifications, audit] = await Promise.all([
         client.from('workspaces').select('name, timezone').eq('id', workspaceId).single(),
-        client.from('workspace_members').select('user_id, role, active, joined_at, profiles(full_name,email,avatar_color,organization,job_title,phone)').eq('workspace_id', workspaceId),
+        client.from('workspace_members').select('user_id, role, can_clear_logs, active, joined_at, profiles(full_name,email,avatar_color,organization,job_title,phone)').eq('workspace_id', workspaceId),
         client.from('folders').select('*').eq('workspace_id', workspaceId),
         client.from('documents').select('*, document_versions(*)').eq('workspace_id', workspaceId),
         client.from('events').select('*, event_attendees(user_id)').eq('workspace_id', workspaceId),
@@ -162,6 +162,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
           jobTitle: profile?.job_title || '',
           phone: profile?.phone || '',
           role: row.role,
+          canClearLogs: row.can_clear_logs === true,
           color: profile?.avatar_color || '#0b6b6d',
           active: row.active,
           joinedAt: row.joined_at,
@@ -422,21 +423,21 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   }, [currentUser.id])
 
   const inviteMember = useCallback(async (name: string, email: string, organization: string, jobTitle: string, role: InvitableMemberRole) => {
-    if (!canManageMembership(currentUser.role)) return 'Only the Owner or Super Admin can invite people.'
+    if (!canManageMembership(currentUser.role)) return 'Only Super Admins can invite people.'
     if (supabase && workspaceIdRef.current) {
       const { error: inviteError } = await supabase.functions.invoke('manage-members', { body: { action: 'invite', workspaceId: workspaceIdRef.current, name, email, organization, jobTitle, role } })
       return inviteError ? await functionErrorMessage(inviteError, 'Unable to send the invitation.') : null
     }
-    const member: Member = { id: createId('member'), name, email, organization, jobTitle, phone: '', role, color: '#477d5d', active: true, joinedAt: new Date().toISOString() }
+    const member: Member = { id: createId('member'), name, email, organization, jobTitle, phone: '', role, canClearLogs: false, color: '#477d5d', active: true, joinedAt: new Date().toISOString() }
     setData((previous) => addAudit({ ...previous, members: [...previous.members, member] }, 'invited', 'member', name))
     return null
   }, [addAudit, currentUser.role])
 
   const deactivateMember = useCallback(async (memberId: string) => {
-    if (!canManageMembership(currentUser.role)) return 'Only the Owner or Super Admin can deactivate people.'
+    if (!canManageMembership(currentUser.role)) return 'Only Super Admins can deactivate people.'
     const member = data.members.find((candidate) => candidate.id === memberId)
     if (!member) return 'Member not found.'
-    if (!canDeactivateMember(currentUser.role, member, data.members)) return 'The Owner and Super Admin cannot be deactivated.'
+    if (!canDeactivateMember(currentUser.role, member, data.members)) return 'Super Admins cannot be deactivated.'
     if (supabase && workspaceIdRef.current) {
       const { error: deactivateError } = await supabase.functions.invoke('manage-members', { body: { action: 'deactivate', workspaceId: workspaceIdRef.current, userId: memberId } })
       if (deactivateError) return deactivateError.message
@@ -446,7 +447,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   }, [addAudit, currentUser.role, data.members])
 
   const clearAuditLog = useCallback(async (scope: 'activity' | 'members') => {
-    if (!canClearAuditLog(currentUser.role)) return { error: 'Only the Owner can clear logs.', deleted: 0 }
+    if (!canClearAuditLog(currentUser)) return { error: 'Only Rassul has permission to clear logs.', deleted: 0 }
     let deleted = data.audit.filter((entry) => scope === 'members' ? entry.entityKind === 'member' : entry.entityKind !== 'member').length
     if (supabase && workspaceIdRef.current) {
       const { data: deletedRows, error: clearError } = await supabase.rpc('clear_workspace_log', {
@@ -461,7 +462,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       audit: previous.audit.filter((entry) => scope === 'members' ? entry.entityKind !== 'member' : entry.entityKind === 'member'),
     }))
     return { error: null, deleted }
-  }, [currentUser.role, data.audit])
+  }, [currentUser, data.audit])
 
   const trash = useMemo(() => {
     const items: TrashItem[] = []

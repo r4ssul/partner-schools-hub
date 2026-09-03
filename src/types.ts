@@ -13,6 +13,7 @@ export interface Member {
   jobTitle: string
   phone: string
   role: MemberRole
+  canClearLogs: boolean
   color: string
   active: boolean
   joinedAt?: string

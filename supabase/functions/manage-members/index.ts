@@ -31,7 +31,7 @@ Deno.serve(async (request) => {
   let body: ManageMemberRequest
   try { body = await request.json() } catch { return json({ error: 'Invalid request body' }, 400) }
   const { data: owner } = await admin.from('workspace_members').select('role,active').eq('workspace_id', body.workspaceId).eq('user_id', authData.user.id).single()
-  if (!owner?.active || !['owner', 'super_admin'].includes(owner.role)) return json({ error: 'Only the Owner or Super Admin can manage access' }, 403)
+  if (!owner?.active || !['owner', 'super_admin'].includes(owner.role)) return json({ error: 'Only Super Admins can manage access' }, 403)
 
   if (body.action === 'invite' || body.action === 'resend') {
     if (!body.email || !body.name || !body.organization) return json({ error: 'Name, email and organisation are required' }, 400)
@@ -81,7 +81,7 @@ Deno.serve(async (request) => {
     if (!body.userId) return json({ error: 'User ID is required' }, 400)
     const { data: target } = await admin.from('workspace_members').select('role,profiles(full_name)').eq('workspace_id', body.workspaceId).eq('user_id', body.userId).single()
     if (!target) return json({ error: 'Member not found' }, 404)
-    if (target.role !== 'admin') return json({ error: 'The Owner and Super Admin cannot be deactivated' }, 400)
+    if (target.role !== 'admin') return json({ error: 'Super Admins cannot be deactivated' }, 400)
     const { error: updateError } = await admin.from('workspace_members').update({ active: false }).eq('workspace_id', body.workspaceId).eq('user_id', body.userId)
     if (updateError) return json({ error: updateError.message }, 400)
     await admin.auth.admin.updateUserById(body.userId, { ban_duration: '876000h' })

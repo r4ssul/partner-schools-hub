@@ -1,6 +1,6 @@
 # Partner Schools Hub
 
-A private collaboration portal for partner-school leaders, hosted on GitHub Pages with Supabase Auth/Postgres/Realtime and private Cloudflare R2 storage. Rassul Abzhapparov is the Owner, Jan Baloglu is the Super Admin, and invited members are Admins. No illustrative content is seeded in production.
+A private collaboration portal for partner-school leaders, hosted on GitHub Pages with Supabase Auth/Postgres/Realtime and private Cloudflare R2 storage. Rassul Abzhapparov (Web. Developer) and Jan Baloglu (Super Admin) have identical Super Admin management access. Only Rassul has the separate permission to clear logs. Invited members are Admins. No illustrative content is seeded in production.
 
 ## Local preview
 
@@ -36,7 +36,7 @@ The browser suite builds in test mode, enables the isolated preview, and runs at
    supabase functions deploy dispatch-notifications --no-verify-jwt
    ```
 
-3. For a new installation, create and auto-confirm the initial Owner account `rassul.abzhapparov@enishi.ac.jp` in Supabase Dashboard → Authentication → Users. Set `full_name: Rassul Abzhapparov`. Set credentials privately; never put passwords in Git. The existing production accounts are already provisioned.
+3. For a new installation, create and auto-confirm the initial Super Admin account `rassul.abzhapparov@enishi.ac.jp` in Supabase Dashboard → Authentication → Users. Set `full_name: Rassul Abzhapparov`. Set credentials privately; never put passwords in Git. The existing production accounts are already provisioned.
 4. Copy `.env.example` to `.env.local` for local connected development. In GitHub Actions, configure:
 
    ```text
@@ -54,7 +54,7 @@ The browser suite builds in test mode, enables the isolated preview, and runs at
    ```
 
 6. Configure Resend as Supabase custom SMTP. Allow only the production `/accept-invite` and `/reset-password` redirect URLs.
-7. On a fresh installation, sign in as Rassul to create the single workspace and standard folders. Invite Jan through Team access, then assign his `workspace_members.role` to `super_admin` through the trusted Supabase dashboard. All other invitees receive `admin`. Migration 202609040009 transfers the existing workspace only when both named accounts are already present.
+7. On a fresh installation, sign in as Rassul to create the single workspace and standard folders. Invite Jan through Team access, then assign his `workspace_members.role` to `super_admin` through the trusted Supabase dashboard. All other invitees receive `admin`. Migration 202609040012 gives the two existing named accounts equal Super Admin roles and grants only Rassul log-clearing permission.
 8. Schedule `dispatch-notifications` through Supabase Cron using an `x-dispatch-secret` stored in Vault. The database reminder job runs daily at 08:00 Asia/Tokyo.
 9. Authenticate Wrangler, create the private R2 bucket, configure the Worker secrets, and deploy the file API:
 
@@ -68,7 +68,7 @@ The browser suite builds in test mode, enables the isolated preview, and runs at
 
 10. Add the Supabase URL, publishable key, and deployed Worker URL as GitHub Actions secrets. Push `main`; GitHub Pages automatically switches from browser-local showcase mode to the shared Supabase and R2 services.
 
-For a showcase, invite each reviewer from Team access so uploads and actions are attributed correctly. If reviewers must share the owner account temporarily, rotate its password immediately after the showcase.
+For a showcase, invite each reviewer from Team access so uploads and actions are attributed correctly. If reviewers must share a Super Admin account temporarily, rotate its password immediately after the showcase.
 
 ## Live release tests
 
@@ -89,7 +89,7 @@ A fresh `E2E_INVITE_URL` and `E2E_INVITED_PASSWORD` enable the invitation-accept
 - React, Vite, TypeScript, React Router, TanStack Query, React Hook Form, and Zod.
 - Supabase Auth, Postgres, RLS, Realtime, Edge Functions, and Cron.
 - Private Cloudflare R2 document storage behind an authenticated Worker, with a 50 MB limit, MIME allowlist, immutable versions, membership checks, and file-access auditing.
-- Owner and Super Admin manage membership, workspace settings, and audit review. Only the Owner can clear activity/member logs. Both leadership accounts are protected from in-app deactivation, and the database protects the final Owner.
+- Both Super Admins manage membership, workspace settings, and audit review. Only Rassul has the database-controlled `can_clear_logs` permission. Both Super Admin accounts are protected from in-app deactivation, and the database protects the final active Super Admin.
 - Self-service name, organisation, job title, and phone details; invitees must be assigned an organisation by the super administrator.
 - Administrator-managed folders with recoverable 30-day soft deletion; files remain visible from All files if their folder is archived.
 - Versioned local preview storage, route-level lazy loading, keyboard-visible focus, reduced motion support, and fixed mobile navigation.
@@ -105,7 +105,7 @@ The production workflow always disables local preview. Missing Supabase configur
 
 ## Permission and chat checks
 
-Run the transaction-only database suite with `supabase test db` locally, or `supabase db query --linked --file supabase/tests/roles_chat_creation.test.sql` against a linked project. It creates its own uniquely identified fixtures and rolls back every row. It checks all three roles, log-clearing boundaries, non-member/deactivated access, sender identity, retry deduplication, read-state privacy, and cross-workspace creation links.
+Run the transaction-only database suite with `supabase test db` locally, or `supabase db query --linked --file supabase/tests/roles_chat_creation.test.sql` against a linked project. It creates its own uniquely identified fixtures and rolls back every row. It checks both management identities, the separate log-clearing capability, Admin restrictions, non-member/deactivated access, sender identity, retry deduplication, read-state privacy, and cross-workspace creation links.
 
 Branded authentication email requires custom SMTP. The default Supabase email provider has not been replaced by this release.
 
@@ -117,4 +117,4 @@ Branded authentication email requires custom SMTP. The default Supabase email pr
 - Run `npm ci`, `npm run check`, `npm audit`, `supabase test db`, and the live browser suite.
 - Confirm GitHub Pages has the Supabase and R2 endpoint secrets and no longer builds in showcase mode.
 - Configure backups, provider alerts, Cron, and secret rotation.
-- Confirm Rassul is Owner, Jan is Super Admin, and all other members are Admins. Preserve real production content; do not reset it when deploying.
+- Confirm Rassul displays as Web. Developer and Jan as Super Admin, both have full management access, only Rassul has log-clearing permission, and all other members are Admins. Preserve real production content; do not reset it when deploying.

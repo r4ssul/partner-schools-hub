@@ -39,7 +39,7 @@ test.beforeEach(async ({ page }) => {
   await resetWorkspace(page)
 })
 
-test('starts with Jan as Super Admin and Rassul as Owner', async ({ page }) => {
+test('shows Jan as Super Admin and Rassul as Web. Developer', async ({ page }) => {
   await page.locator('.user-button').click()
   await expect(page.locator('.user-button')).toContainText('Jan Baloglu')
   await expect(page.locator('.user-button')).toContainText('Super Admin')
@@ -49,7 +49,7 @@ test('starts with Jan as Super Admin and Rassul as Owner', async ({ page }) => {
   await expect(members.first()).toContainText('Jan Baloglu')
   await expect(members.first()).toContainText('Super Admin')
   await expect(members.last()).toContainText('Rassul Abzhapparov')
-  await expect(members.last()).toContainText('Owner')
+  await expect(members.last()).toContainText('Web. Developer')
 })
 
 test('protects the portal with login and rejects invalid credentials', async ({ page }) => {
@@ -238,9 +238,9 @@ test('super admin previews, invites, and deactivates an admin', async ({ page })
   await expect(member).toContainText('Deactivated')
 })
 
-test('owner can review the two audit scopes with guarded clear actions', async ({ page }) => {
-  // Isolated preview fixture: make the signed-in test identity Owner.
-  await page.evaluate((key) => { const value = JSON.parse(localStorage.getItem(key) || '{}'); value.members[0].role = 'owner'; localStorage.setItem(key, JSON.stringify(value)) }, STORAGE_KEY)
+test('log-clearing permission enables both guarded clear actions', async ({ page }) => {
+  // Isolated preview fixture: grant the signed-in test identity log-clearing permission.
+  await page.evaluate((key) => { const value = JSON.parse(localStorage.getItem(key) || '{}'); value.members[0].canClearLogs = true; localStorage.setItem(key, JSON.stringify(value)) }, STORAGE_KEY)
   await page.reload()
   await page.locator('.user-button').click()
   await page.getByRole('menuitem', { name: 'Audit log' }).click()
@@ -301,7 +301,7 @@ test('super admin can manage settings but cannot clear either log', async ({ pag
   await page.goto('/settings')
   await expect(page.getByLabel('Workspace name')).toBeEnabled()
   await page.goto('/admin/audit')
-  await expect(page.getByText('Only the Owner can clear activity and member logs.')).toBeVisible()
+  await expect(page.getByText('Only Rassul can clear activity and member logs.')).toBeVisible()
   await expect(page.getByRole('button', { name: /Clear activity|Clear member log/ })).toHaveCount(0)
 })
 

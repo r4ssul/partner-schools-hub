@@ -3,7 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import type { Session } from '@supabase/supabase-js'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
 import { isLocalPreviewEnabled } from '../lib/runtime'
-import { PRIMARY_OWNER_EMAIL } from '../lib/identity'
+import { INITIAL_SUPER_ADMIN_EMAIL } from '../lib/identity'
 
 interface AuthUser {
   id: string
@@ -23,9 +23,9 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 const LOCAL_SESSION_KEY = 'partner-schools-hub:preview-session'
-const previewEmail = (import.meta.env.VITE_PREVIEW_LOGIN_EMAIL as string | undefined)?.trim() || PRIMARY_OWNER_EMAIL
+const previewEmail = (import.meta.env.VITE_PREVIEW_LOGIN_EMAIL as string | undefined)?.trim() || INITIAL_SUPER_ADMIN_EMAIL
 const previewPassword = (import.meta.env.VITE_PREVIEW_LOGIN_PASSWORD as string | undefined) || ''
-const LOCAL_PREVIEW_USER: AuthUser = { id: previewEmail.toLowerCase() === PRIMARY_OWNER_EMAIL ? 'rassul-abzhapparov' : 'jan-baloglu', email: previewEmail }
+const LOCAL_PREVIEW_USER: AuthUser = { id: previewEmail.toLowerCase() === INITIAL_SUPER_ADMIN_EMAIL ? 'rassul-abzhapparov' : 'jan-baloglu', email: previewEmail }
 
 function loadPreviewSession() {
   if (!isLocalPreviewEnabled) return null

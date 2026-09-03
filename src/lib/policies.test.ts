@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { canClearAuditLog, canDeactivateMember, canManageMembership, canViewAuditLog, isTrashExpired, memberRoleLabel, notificationDedupeKey } from './policies'
 import type { Member } from '../types'
 
-const owner: Member = { id: 'owner', name: 'Owner', email: 'owner@example.com', organization: 'Partner School A', jobTitle: 'Head', phone: '', role: 'owner', color: '#000', active: true }
-const admin: Member = { id: 'admin', name: 'Admin', email: 'admin@example.com', organization: 'Partner School B', jobTitle: 'Coordinator', phone: '', role: 'admin', color: '#000', active: true }
+const owner: Member = { id: 'rassul', name: 'Rassul', email: 'rassul@example.com', organization: 'Partner School A', jobTitle: 'Head', phone: '', role: 'super_admin', canClearLogs: true, color: '#000', active: true }
+const admin: Member = { id: 'admin', name: 'Admin', email: 'admin@example.com', organization: 'Partner School B', jobTitle: 'Coordinator', phone: '', role: 'admin', canClearLogs: false, color: '#000', active: true }
 const superAdmin: Member = { ...admin, id: 'super-admin', name: 'Super Admin', role: 'super_admin' }
 
 describe('membership permissions', () => {
@@ -13,18 +13,22 @@ describe('membership permissions', () => {
     expect(canManageMembership('admin')).toBe(false)
   })
 
-  it('allows leadership to review logs, but only owners to clear them', () => {
+  it('allows both Super Admins to review logs, but only the explicitly permitted member can clear them', () => {
     expect(canViewAuditLog('owner')).toBe(true)
     expect(canViewAuditLog('super_admin')).toBe(true)
     expect(canViewAuditLog('admin')).toBe(false)
-    expect(canClearAuditLog('owner')).toBe(true)
-    expect(canClearAuditLog('super_admin')).toBe(false)
-    expect(canClearAuditLog('admin')).toBe(false)
-    expect(memberRoleLabel('owner')).toBe('Owner')
+    expect(canClearAuditLog(owner)).toBe(true)
+    expect(canClearAuditLog(superAdmin)).toBe(false)
+    expect(canClearAuditLog(admin)).toBe(false)
+    expect(canClearAuditLog({ ...owner, active: false })).toBe(false)
+    expect(canClearAuditLog({ ...admin, canClearLogs: true })).toBe(false)
+    expect(memberRoleLabel('owner')).toBe('Super Admin')
     expect(memberRoleLabel('super_admin')).toBe('Super Admin')
+    expect(memberRoleLabel('super_admin', 'rassul.abzhapparov@enishi.ac.jp')).toBe('Web. Developer')
+    expect(memberRoleLabel('super_admin', 'mcanbaloglu@enishi.ac.jp')).toBe('Super Admin')
   })
 
-  it('protects the final active owner', () => {
+  it('protects both Super Admins and permits either to manage Admin members', () => {
     expect(canDeactivateMember('owner', owner, [owner, admin])).toBe(false)
     expect(canDeactivateMember('owner', admin, [owner, admin])).toBe(true)
     expect(canDeactivateMember('owner', superAdmin, [owner, superAdmin])).toBe(false)
