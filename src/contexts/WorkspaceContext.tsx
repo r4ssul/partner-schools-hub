@@ -5,13 +5,14 @@ import { addHours } from 'date-fns'
 import { createInitialWorkspaceData } from '../data/seed'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
 import { isR2FileApiConfigured, uploadFileToR2 } from '../lib/fileApi'
-import { canDeactivateMember, canManageMembership, isTrashExpired } from '../lib/policies'
+import { canClearAuditLog, canDeactivateMember, canManageMembership, canViewAuditLog, isTrashExpired } from '../lib/policies'
 import { validateUpload } from '../lib/validation'
 import { PRIMARY_OWNER_EMAIL } from '../lib/identity'
 import type {
   AuditEntry,
   EntityKind,
   HubDocument,
+  InvitableMemberRole,
   Member,
   MemberProfileInput,
   NewItemInput,
@@ -41,8 +42,9 @@ interface WorkspaceContextValue {
   markNotificationRead: (id: string) => Promise<void>
   updateSettings: (name: string, emailNotifications: boolean) => Promise<void>
   updateProfile: (profile: MemberProfileInput) => Promise<string | null>
-  inviteMember: (name: string, email: string, organization: string, jobTitle: string) => Promise<string | null>
+  inviteMember: (name: string, email: string, organization: string, jobTitle: string, role: InvitableMemberRole) => Promise<string | null>
   deactivateMember: (memberId: string) => Promise<string | null>
+  clearAuditLog: (scope: 'activity' | 'members') => Promise<{ error: string | null; deleted: number }>
   trash: TrashItem[]
   resetLocalPreview: () => void
 }
@@ -73,6 +75,19 @@ function createId(prefix: string) {
 
 function entityLabel(kind: EntityKind) {
   return kind === 'file' ? 'document' : kind
+}
+
+async function functionErrorMessage(reason: unknown, fallback: string) {
+  const context = (reason as { context?: Response } | null)?.context
+  if (context instanceof Response) {
+    try {
+      const body = await context.clone().json() as { error?: string; message?: string }
+      return body.error || body.message || fallback
+    } catch {
+      // Fall through to the standard error message.
+    }
+  }
+  return reason instanceof Error ? reason.message : fallback
 }
 
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
@@ -115,7 +130,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       workspaceIdRef.current = workspaceId
       const [workspace, profiles, folders, documents, events, meetings, tasks, links, notifications, audit] = await Promise.all([
         client.from('workspaces').select('name, timezone').eq('id', workspaceId).single(),
-        client.from('workspace_members').select('user_id, role, active, profiles(full_name,email,avatar_color,organization,job_title,phone)').eq('workspace_id', workspaceId),
+        client.from('workspace_members').select('user_id, role, active, joined_at, profiles(full_name,email,avatar_color,organization,job_title,phone)').eq('workspace_id', workspaceId),
         client.from('folders').select('*').eq('workspace_id', workspaceId),
         client.from('documents').select('*, document_versions(*)').eq('workspace_id', workspaceId),
         client.from('events').select('*, event_attendees(user_id)').eq('workspace_id', workspaceId),
@@ -123,7 +138,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         client.from('tasks').select('*, task_documents(document_id)').eq('workspace_id', workspaceId),
         client.from('quick_links').select('*').eq('workspace_id', workspaceId),
         client.from('notifications').select('*').eq('user_id', user!.id).order('created_at', { ascending: false }),
-        membership.data.role === 'owner'
+        canViewAuditLog(membership.data.role)
           ? client.from('audit_log').select('*').eq('workspace_id', workspaceId).order('created_at', { ascending: false }).limit(100)
           : Promise.resolve({ data: [], error: null }),
       ])
@@ -144,6 +159,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
           role: row.role,
           color: profile?.avatar_color || '#0b6b6d',
           active: row.active,
+          joinedAt: row.joined_at,
         }
       })
       const mapStamp = (value: string | null | undefined) => value || new Date().toISOString()
@@ -158,7 +174,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         tasks: (tasks.data ?? []).map((row) => ({ id: String(row.id), title: row.title, assigneeId: row.assignee_id, dueAt: row.due_at, status: row.status, priority: row.priority, notes: row.notes, sourceMeetingId: row.source_meeting_id ? String(row.source_meeting_id) : null, sourceEventId: row.source_event_id ? String(row.source_event_id) : null, documentIds: (row.task_documents ?? []).map((document: { document_id: number }) => String(document.document_id)), createdBy: row.created_by, updatedAt: mapStamp(row.updated_at), deletedAt: row.deleted_at })),
         links: (links.data ?? []).map((row) => ({ id: String(row.id), title: row.title, url: row.url, description: row.description, category: row.category, createdBy: row.created_by, updatedAt: mapStamp(row.updated_at), deletedAt: row.deleted_at })),
         notifications: (notifications.data ?? []).map((row) => ({ id: String(row.id), title: row.title, body: row.body, createdAt: row.created_at, readAt: row.read_at })),
-        audit: (audit.data ?? []).map((row) => ({ id: String(row.id), action: row.action, entityKind: row.entity_kind, entityName: row.entity_name, actorId: row.actor_id, createdAt: row.created_at })),
+        audit: (audit.data ?? []).map((row) => ({ id: String(row.id), action: row.action, entityKind: row.entity_kind, entityName: row.entity_name, actorId: row.actor_id ?? null, createdAt: row.created_at })),
       })
     }
 
@@ -407,13 +423,13 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     return null
   }, [currentUser.id])
 
-  const inviteMember = useCallback(async (name: string, email: string, organization: string, jobTitle: string) => {
+  const inviteMember = useCallback(async (name: string, email: string, organization: string, jobTitle: string, role: InvitableMemberRole) => {
     if (!canManageMembership(currentUser.role)) return 'Only the owner can invite people.'
     if (supabase && workspaceIdRef.current) {
-      const { error: inviteError } = await supabase.functions.invoke('manage-members', { body: { action: 'invite', workspaceId: workspaceIdRef.current, name, email, organization, jobTitle, role: 'admin' } })
-      return inviteError?.message ?? null
+      const { error: inviteError } = await supabase.functions.invoke('manage-members', { body: { action: 'invite', workspaceId: workspaceIdRef.current, name, email, organization, jobTitle, role } })
+      return inviteError ? await functionErrorMessage(inviteError, 'Unable to send the invitation.') : null
     }
-    const member: Member = { id: createId('member'), name, email, organization, jobTitle, phone: '', role: 'admin', color: '#477d5d', active: true }
+    const member: Member = { id: createId('member'), name, email, organization, jobTitle, phone: '', role, color: '#477d5d', active: true, joinedAt: new Date().toISOString() }
     setData((previous) => addAudit({ ...previous, members: [...previous.members, member] }, 'invited', 'member', name))
     return null
   }, [addAudit, currentUser.role])
@@ -430,6 +446,24 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     setData((previous) => addAudit({ ...previous, members: previous.members.map((candidate) => candidate.id === memberId ? { ...candidate, active: false } : candidate) }, 'deactivated', 'member', member.name))
     return null
   }, [addAudit, currentUser.role, data.members])
+
+  const clearAuditLog = useCallback(async (scope: 'activity' | 'members') => {
+    if (!canClearAuditLog(currentUser.role)) return { error: 'Only an owner or super admin can clear logs.', deleted: 0 }
+    let deleted = data.audit.filter((entry) => scope === 'members' ? entry.entityKind === 'member' : entry.entityKind !== 'member').length
+    if (supabase && workspaceIdRef.current) {
+      const { data: deletedRows, error: clearError } = await supabase.rpc('clear_workspace_log', {
+        target_workspace_id: workspaceIdRef.current,
+        target_scope: scope,
+      })
+      if (clearError) return { error: clearError.message, deleted: 0 }
+      deleted = Number(deletedRows ?? 0)
+    }
+    setData((previous) => ({
+      ...previous,
+      audit: previous.audit.filter((entry) => scope === 'members' ? entry.entityKind !== 'member' : entry.entityKind === 'member'),
+    }))
+    return { error: null, deleted }
+  }, [currentUser.role, data.audit])
 
   const trash = useMemo(() => {
     const items: TrashItem[] = []
@@ -448,7 +482,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
   }, [])
 
-  const value = useMemo(() => ({ data, currentUser, loading, error, uploadUrls, addItem, uploadFile, addDocumentVersion, updateTaskStatus, updateMeetingNotes, archiveItem, restoreItem, markNotificationRead, updateSettings, updateProfile, inviteMember, deactivateMember, trash, resetLocalPreview }), [data, currentUser, loading, error, uploadUrls, addItem, uploadFile, addDocumentVersion, updateTaskStatus, updateMeetingNotes, archiveItem, restoreItem, markNotificationRead, updateSettings, updateProfile, inviteMember, deactivateMember, trash, resetLocalPreview])
+  const value = useMemo(() => ({ data, currentUser, loading, error, uploadUrls, addItem, uploadFile, addDocumentVersion, updateTaskStatus, updateMeetingNotes, archiveItem, restoreItem, markNotificationRead, updateSettings, updateProfile, inviteMember, deactivateMember, clearAuditLog, trash, resetLocalPreview }), [data, currentUser, loading, error, uploadUrls, addItem, uploadFile, addDocumentVersion, updateTaskStatus, updateMeetingNotes, archiveItem, restoreItem, markNotificationRead, updateSettings, updateProfile, inviteMember, deactivateMember, clearAuditLog, trash, resetLocalPreview])
 
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>
 }

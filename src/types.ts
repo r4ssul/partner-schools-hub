@@ -1,4 +1,5 @@
-export type MemberRole = 'owner' | 'admin'
+export type MemberRole = 'owner' | 'super_admin' | 'admin'
+export type InvitableMemberRole = Exclude<MemberRole, 'owner'>
 export type TaskStatus = 'to_do' | 'in_progress' | 'done'
 export type TaskPriority = 'low' | 'medium' | 'high'
 export type MeetingStatus = 'upcoming' | 'in_progress' | 'complete'
@@ -14,6 +15,7 @@ export interface Member {
   role: MemberRole
   color: string
   active: boolean
+  joinedAt?: string
 }
 
 export interface MemberProfileInput {
@@ -122,7 +124,7 @@ export interface AuditEntry {
   action: string
   entityKind: EntityKind | 'member'
   entityName: string
-  actorId: string
+  actorId: string | null
   createdAt: string
 }
 

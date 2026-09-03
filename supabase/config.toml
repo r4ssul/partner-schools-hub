@@ -44,6 +44,10 @@ max_frequency = "1m"
 otp_length = 8
 otp_expiry = 3600
 
+[auth.email.template.invite]
+subject = "You’re invited to Partner Schools Hub"
+content_path = "./supabase/templates/invite.html"
+
 [auth.mfa.totp]
 enroll_enabled = true
 verify_enabled = true

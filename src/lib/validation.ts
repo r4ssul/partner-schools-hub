@@ -46,6 +46,7 @@ export const memberProfileSchema = z.object({
 
 export const memberInvitationSchema = memberProfileSchema.pick({ name: true, organization: true, jobTitle: true }).extend({
   email: z.string().trim().email('Enter a valid email address'),
+  role: z.enum(['admin', 'super_admin']),
 })
 
 export const ALLOWED_FILE_TYPES = new Set([

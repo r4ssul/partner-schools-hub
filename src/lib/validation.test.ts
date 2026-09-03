@@ -21,7 +21,8 @@ describe('createItemSchema', () => {
 describe('member profile validation', () => {
   it('requires an organisation for profiles and invitations', () => {
     expect(memberProfileSchema.safeParse({ name: 'Jan Baloglu', organization: '', jobTitle: '', phone: '' }).success).toBe(false)
-    expect(memberInvitationSchema.safeParse({ name: 'Casey Nguyen', email: 'casey@example.com', organization: 'Horizon School', jobTitle: 'Principal' }).success).toBe(true)
+    expect(memberInvitationSchema.safeParse({ name: 'Casey Nguyen', email: 'casey@example.com', organization: 'Horizon School', jobTitle: 'Principal', role: 'admin' }).success).toBe(true)
+    expect(memberInvitationSchema.safeParse({ name: 'Casey Nguyen', email: 'casey@example.com', organization: 'Horizon School', jobTitle: 'Principal', role: 'owner' }).success).toBe(false)
   })
 })
 

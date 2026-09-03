@@ -38,15 +38,15 @@ test.beforeEach(async ({ page }) => {
   await resetWorkspace(page)
 })
 
-test('starts clean with Jan Baloglu as super administrator', async ({ page }) => {
+test('starts clean with Jan Baloglu as workspace owner', async ({ page }) => {
   await page.locator('.user-button').click()
   await expect(page.locator('.user-button')).toContainText('Jan Baloglu')
-  await expect(page.locator('.user-button')).toContainText('Super Admin')
+  await expect(page.locator('.user-button')).toContainText('Owner')
   await page.getByRole('menuitem', { name: 'Manage users' }).click()
   const members = page.locator('.member-row')
   await expect(members).toHaveCount(1)
   await expect(members.first()).toContainText('Jan Baloglu')
-  await expect(members.first()).toContainText('Super Admin')
+  await expect(members.first()).toContainText('Owner')
 })
 
 test('protects the portal with login and rejects invalid credentials', async ({ page }) => {
@@ -215,21 +215,40 @@ test('searches newly created workspace content and starts with no notifications'
   await expect(page.getByRole('button', { name: '0 unread notifications' })).toBeVisible()
 })
 
-test('super administrator invites and deactivates an administrator', async ({ page }) => {
+test('owner previews, invites, and deactivates a team member', async ({ page }) => {
   await page.locator('.user-button').click()
   await page.getByRole('menuitem', { name: 'Manage users' }).click()
-  await page.getByRole('button', { name: 'Invite admin' }).click()
+  await page.getByRole('button', { name: 'Invite team member' }).click()
   await page.getByLabel('Full name').fill('Casey Nguyen')
-  await page.getByLabel('Email address').fill('casey@example.com')
+  await page.getByLabel('Work email').fill('casey@example.com')
   await page.getByLabel('Organisation').fill('Shinagawa International School')
   await page.getByLabel('Job title').fill('Programme Coordinator')
+  await page.getByLabel('Role').selectOption('super_admin')
+  await expect(page.getByLabel('Invitation email summary')).toContainText('Jan Baloglu')
+  await expect(page.getByLabel('Invitation email summary')).toContainText('Super Admin')
   await page.getByRole('button', { name: 'Send invitation' }).click()
-  await expect(page.getByRole('status')).toContainText('Invitation created successfully')
+  await expect(page.getByRole('status')).toContainText('Invitation sent to casey@example.com')
   const member = page.locator('.member-row').filter({ hasText: 'Casey Nguyen' })
   await expect(member).toContainText('Shinagawa International School · Programme Coordinator')
+  await expect(member).toContainText('Super Admin')
   await member.getByRole('button', { name: 'Deactivate' }).click()
   await expect(page.getByRole('status')).toContainText('Casey Nguyen was deactivated')
   await expect(member).toContainText('Deactivated')
+})
+
+test('owner can review the two audit scopes with guarded clear actions', async ({ page }) => {
+  await page.locator('.user-button').click()
+  await page.getByRole('menuitem', { name: 'Audit log' }).click()
+  await expect(page.getByRole('heading', { name: 'Audit log' })).toBeVisible()
+  await page.getByRole('button', { name: 'Members' }).click()
+  await expect(page.getByRole('heading', { name: 'Member log' })).toBeVisible()
+  await page.getByRole('button', { name: 'Clear member log' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Clear member log?' })
+  await expect(dialog).toBeVisible()
+  await expect(dialog.getByRole('button', { name: 'Clear permanently' })).toBeDisabled()
+  await dialog.getByLabel('Confirmation').fill('CLEAR')
+  await expect(dialog.getByRole('button', { name: 'Clear permanently' })).toBeEnabled()
+  await dialog.getByRole('button', { name: 'Cancel' }).click()
 })
 
 test('lets the signed-in administrator control personal information', async ({ page }) => {

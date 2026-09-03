@@ -6,6 +6,18 @@ export function canManageMembership(role: MemberRole) {
   return role === 'owner'
 }
 
+export function canViewAuditLog(role: MemberRole) {
+  return role === 'owner' || role === 'super_admin'
+}
+
+export const canClearAuditLog = canViewAuditLog
+
+export function memberRoleLabel(role: MemberRole) {
+  if (role === 'owner') return 'Owner'
+  if (role === 'super_admin') return 'Super Admin'
+  return 'Admin'
+}
+
 export function canDeactivateMember(actorRole: MemberRole, target: Member, members: Member[]) {
   if (!canManageMembership(actorRole) || !target.active) return false
   if (target.role !== 'owner') return true

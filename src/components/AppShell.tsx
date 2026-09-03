@@ -3,6 +3,7 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { Activity, Bell, CalendarDays, CheckSquare2, ChevronDown, FileText, Home, Link2, LogOut, Menu, Plus, Search, Settings, Trash2, UserCog, UsersRound, X } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useWorkspace } from '../contexts/WorkspaceContext'
+import { canViewAuditLog, memberRoleLabel } from '../lib/policies'
 import type { EntityKind } from '../types'
 import { AddItemDialog } from './AddItemDialog'
 import { Avatar } from './Avatar'
@@ -87,8 +88,8 @@ export function AppShell() {
             {notificationsOpen ? <div className="dropdown notification-menu"><div className="dropdown__heading"><strong>Notifications</strong><span>{unread.length} unread</span></div>{data.notifications.length ? data.notifications.slice(0, 6).map((notification) => <button key={notification.id} className={notification.readAt ? 'notification-item' : 'notification-item is-unread'} onClick={() => void markNotificationRead(notification.id)}><strong>{notification.title}</strong><span>{notification.body}</span></button>) : <p className="empty-copy">You’re all caught up.</p>}</div> : null}
           </div>
           <div className="menu-anchor user-anchor">
-            <button className="user-button" onClick={() => { setUserOpen((value) => !value); setAddMenuOpen(false); setNotificationsOpen(false) }} aria-expanded={userOpen} aria-haspopup="menu"><Avatar member={currentUser} /><span><strong>{currentUser.name}</strong><small>{currentUser.role === 'owner' ? 'Super Admin' : 'Admin'}</small></span><ChevronDown size={16} /></button>
-            {userOpen ? <div className="dropdown user-menu" role="menu"><button role="menuitem" onClick={() => { navigate('/settings'); setUserOpen(false) }}><Settings size={17} />Account settings</button>{currentUser.role === 'owner' ? <><button role="menuitem" onClick={() => { navigate('/admin/users'); setUserOpen(false) }}><UserCog size={17} />Manage users</button><button role="menuitem" onClick={() => { navigate('/admin/audit'); setUserOpen(false) }}><Activity size={17} />Audit log</button></> : null}<button role="menuitem" onClick={() => { navigate('/trash'); setUserOpen(false) }}><Trash2 size={17} />Trash</button><button role="menuitem" onClick={() => void signOut()}><LogOut size={17} />Sign out</button></div> : null}
+            <button className="user-button" onClick={() => { setUserOpen((value) => !value); setAddMenuOpen(false); setNotificationsOpen(false) }} aria-expanded={userOpen} aria-haspopup="menu"><Avatar member={currentUser} /><span><strong>{currentUser.name}</strong><small>{memberRoleLabel(currentUser.role)}</small></span><ChevronDown size={16} /></button>
+            {userOpen ? <div className="dropdown user-menu" role="menu"><button role="menuitem" onClick={() => { navigate('/settings'); setUserOpen(false) }}><Settings size={17} />Account settings</button>{currentUser.role === 'owner' ? <button role="menuitem" onClick={() => { navigate('/admin/users'); setUserOpen(false) }}><UserCog size={17} />Manage users</button> : null}{canViewAuditLog(currentUser.role) ? <button role="menuitem" onClick={() => { navigate('/admin/audit'); setUserOpen(false) }}><Activity size={17} />Audit log</button> : null}<button role="menuitem" onClick={() => { navigate('/trash'); setUserOpen(false) }}><Trash2 size={17} />Trash</button><button role="menuitem" onClick={() => void signOut()}><LogOut size={17} />Sign out</button></div> : null}
           </div>
           <button className="icon-button icon-button--inverse mobile-menu-button" onClick={() => setMobileMenu((value) => !value)} aria-label="Open navigation">{mobileMenu ? <X /> : <Menu />}</button>
         </div>

@@ -8,7 +8,7 @@ interface ManageMemberRequest {
   email?: string
   organization?: string
   jobTitle?: string
-  role?: 'admin'
+  role?: 'admin' | 'super_admin'
   userId?: string
 }
 
@@ -39,22 +39,42 @@ Deno.serve(async (request) => {
     const email = body.email.trim()
     const organization = body.organization.trim()
     const jobTitle = body.jobTitle?.trim() || ''
+    const role = body.role || 'admin'
+    if (!['admin', 'super_admin'].includes(role)) return json({ error: 'Invalid invitation role' }, 400)
     if (name.length < 2 || name.length > 120 || organization.length < 2 || organization.length > 120 || jobTitle.length > 120) {
       return json({ error: 'Invitation details are outside the allowed length' }, 400)
     }
     const appUrl = Deno.env.get('APP_URL') || 'http://127.0.0.1:5173'
+    const [workspace, inviterProfile] = await Promise.all([
+      admin.from('workspaces').select('name').eq('id', body.workspaceId).single(),
+      admin.from('profiles').select('full_name,organization').eq('id', authData.user.id).single(),
+    ])
+    if (workspace.error) return json({ error: workspace.error.message }, 400)
+    const inviterName = inviterProfile.data?.full_name || authData.user.email || 'A workspace owner'
+    const inviterOrganization = inviterProfile.data?.organization || workspace.data.name
+    const roleLabel = role === 'super_admin' ? 'Super Admin' : 'Admin'
     const { data: invitation, error } = await admin.auth.admin.inviteUserByEmail(email, {
       redirectTo: `${appUrl}/accept-invite`,
-      data: { full_name: name, organization, job_title: jobTitle, workspace_id: body.workspaceId, role: 'admin' },
+      data: {
+        full_name: name,
+        organization,
+        job_title: jobTitle,
+        workspace_id: body.workspaceId,
+        workspace_name: workspace.data.name,
+        role,
+        role_label: roleLabel,
+        invited_by_name: inviterName,
+        inviter_organization: inviterOrganization,
+      },
     })
     if (error) return json({ error: error.message }, 400)
     if (!invitation.user) return json({ error: 'Invitation did not create a user' }, 500)
     await admin.from('profiles').upsert({ id: invitation.user.id, full_name: name, email, organization, job_title: jobTitle }, { onConflict: 'id' })
-    const { error: membershipError } = await admin.from('workspace_members').upsert({ workspace_id: body.workspaceId, user_id: invitation.user.id, role: 'admin', active: true }, { onConflict: 'workspace_id,user_id' })
+    const { error: membershipError } = await admin.from('workspace_members').upsert({ workspace_id: body.workspaceId, user_id: invitation.user.id, role, active: true }, { onConflict: 'workspace_id,user_id' })
     if (membershipError) return json({ error: membershipError.message }, 400)
     await admin.from('notification_preferences').upsert({ workspace_id: body.workspaceId, user_id: invitation.user.id, email_enabled: true }, { onConflict: 'workspace_id,user_id' })
-    await admin.from('audit_log').insert({ workspace_id: body.workspaceId, actor_id: authData.user.id, action: 'invited', entity_kind: 'member', entity_id: invitation.user.id, entity_name: name, metadata: { organization, job_title: jobTitle } })
-    return json({ userId: invitation.user.id })
+    await admin.from('audit_log').insert({ workspace_id: body.workspaceId, actor_id: authData.user.id, action: 'invited', entity_kind: 'member', entity_id: invitation.user.id, entity_name: name, metadata: { organization, job_title: jobTitle, role } })
+    return json({ userId: invitation.user.id, message: `Invitation sent from ${workspace.data.name}` })
   }
 
   if (body.action === 'deactivate') {

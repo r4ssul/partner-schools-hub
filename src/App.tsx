@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppShell } from './components/AppShell'
 import { useAuth } from './contexts/AuthContext'
 import { WorkspaceProvider, useWorkspace } from './contexts/WorkspaceContext'
+import { canViewAuditLog } from './lib/policies'
 
 const DashboardPage = lazy(() => import('./pages/DashboardPage'))
 const FilesPage = lazy(() => import('./pages/FilesPage'))
@@ -33,6 +34,11 @@ function OwnerRoute({ children }: { children: React.ReactNode }) {
   return currentUser.role === 'owner' ? children : <Navigate to="/" replace />
 }
 
+function AuditRoute({ children }: { children: React.ReactNode }) {
+  const { currentUser } = useWorkspace()
+  return canViewAuditLog(currentUser.role) ? children : <Navigate to="/" replace />
+}
+
 function App() {
   return (
     <Suspense fallback={<LoadingScreen />}>
@@ -50,7 +56,7 @@ function App() {
           <Route path="trash" element={<TrashPage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="admin/users" element={<OwnerRoute><UsersPage /></OwnerRoute>} />
-          <Route path="admin/audit" element={<OwnerRoute><AuditPage /></OwnerRoute>} />
+          <Route path="admin/audit" element={<AuditRoute><AuditPage /></AuditRoute>} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

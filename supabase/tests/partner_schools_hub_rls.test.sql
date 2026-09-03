@@ -1,5 +1,5 @@
 begin;
-select plan(30);
+select plan(35);
 
 select ok((select relrowsecurity from pg_class where oid = 'public.workspaces'::regclass), 'workspaces has RLS enabled');
 select ok((select relrowsecurity from pg_class where oid = 'public.documents'::regclass), 'documents has RLS enabled');
@@ -11,10 +11,13 @@ select ok((select relrowsecurity from pg_class where oid = 'public.audit_log'::r
 select has_column('public', 'profiles', 'organization', 'profiles capture member organisations');
 select has_column('public', 'profiles', 'job_title', 'profiles capture member job titles');
 select is((select count(*)::integer from pg_constraint where conname = 'workspace_members_profile_fkey' and conrelid = 'public.workspace_members'::regclass and contype = 'f'), 1, 'workspace members expose their profile relationship');
+select like((select pg_get_constraintdef(oid) from pg_constraint where conname = 'workspace_members_role_check' and conrelid = 'public.workspace_members'::regclass), '%super_admin%', 'workspace membership supports the super-admin role');
 select ok(has_column_privilege('authenticated', 'public.profiles', 'organization', 'UPDATE'), 'authenticated users can request organisation updates under RLS');
 select is((select public.is_workspace_member(-1)), false, 'unknown workspace membership is denied');
 select is((select public.is_workspace_owner(-1)), false, 'unknown workspace ownership is denied');
+select is((select public.is_workspace_auditor(-1)), false, 'unknown workspace audit access is denied');
 select has_function('public', 'bootstrap_workspace', array['text'], 'workspace bootstrap function exists');
+select has_function('public', 'clear_workspace_log', array['bigint','text'], 'scoped audit clearing function exists');
 select has_function('public', 'create_due_reminders', array[]::text[], 'reminder function exists');
 select has_column('public', 'document_versions', 'storage_provider', 'document versions identify their storage provider');
 select has_function('public', 'register_r2_upload', array['bigint','bigint','bigint','text','text','text','bigint'], 'R2 upload registration function exists');
@@ -26,9 +29,11 @@ select ok(has_table_privilege('authenticated', 'public.documents', 'select'), 'a
 select ok(has_table_privilege('authenticated', 'public.tasks', 'insert'), 'authenticated role can create content under RLS');
 select ok(not has_table_privilege('authenticated', 'public.workspace_members', 'update'), 'membership changes are not exposed to browser clients');
 select ok(not has_table_privilege('authenticated', 'public.audit_log', 'insert'), 'audit entries cannot be forged by browser clients');
+select ok(not has_table_privilege('authenticated', 'public.audit_log', 'delete'), 'audit rows cannot be deleted directly by browser clients');
+select ok(has_function_privilege('authenticated', 'public.clear_workspace_log(bigint,text)', 'EXECUTE'), 'authenticated users can request scoped clearing under function authorization');
 select is((select count(*)::integer from pg_policies where schemaname = 'public' and tablename = 'documents' and cmd = 'SELECT'), 1, 'documents have an explicit member-select policy');
 select is((select count(*)::integer from pg_policies where schemaname = 'public' and tablename = 'profiles' and cmd = 'UPDATE' and with_check like '%auth.uid%'), 1, 'profile updates are limited to the signed-in user');
-select is((select count(*)::integer from pg_policies where schemaname = 'public' and tablename = 'audit_log' and cmd = 'SELECT' and qual like '%is_workspace_owner%'), 1, 'audit reads are owner-only');
+select is((select count(*)::integer from pg_policies where schemaname = 'public' and tablename = 'audit_log' and cmd = 'SELECT' and qual like '%is_workspace_auditor%'), 1, 'audit reads are limited to owners and super admins');
 select is((select count(*)::integer from pg_trigger where tgname = 'workspace_members_protect_final_owner' and not tgisinternal), 1, 'final-owner protection trigger is installed');
 select is((select count(*)::integer from pg_policies where schemaname = 'storage' and tablename = 'objects' and policyname like 'company_documents%'), 0, 'storage objects have no direct browser policy; signed Edge Function access is required');
 

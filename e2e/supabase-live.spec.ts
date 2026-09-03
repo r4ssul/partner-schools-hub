@@ -34,8 +34,8 @@ test.describe('provisioned Supabase workspace', () => {
     await page.goto(inviteUrl!)
     await page.getByLabel('New password').fill(invitedPassword!)
     await page.getByLabel('Confirm password').fill(invitedPassword!)
-    await page.getByRole('button', { name: 'Save password' }).click()
-    await expect(page.getByRole('heading', { name: 'Password updated' })).toBeVisible()
+    await page.getByRole('button', { name: /Activate account|Save password/ }).click()
+    await expect(page.getByRole('heading', { name: /Account activated|Password updated/ })).toBeVisible()
   })
 
   test('two authenticated sessions receive a shared task without refresh', async ({ browser }) => {
