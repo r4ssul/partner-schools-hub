@@ -1,4 +1,6 @@
 begin;
+create extension if not exists pgtap with schema extensions;
+set local search_path = public, extensions;
 select plan(35);
 
 select ok((select relrowsecurity from pg_class where oid = 'public.workspaces'::regclass), 'workspaces has RLS enabled');
@@ -11,7 +13,7 @@ select ok((select relrowsecurity from pg_class where oid = 'public.audit_log'::r
 select has_column('public', 'profiles', 'organization', 'profiles capture member organisations');
 select has_column('public', 'profiles', 'job_title', 'profiles capture member job titles');
 select is((select count(*)::integer from pg_constraint where conname = 'workspace_members_profile_fkey' and conrelid = 'public.workspace_members'::regclass and contype = 'f'), 1, 'workspace members expose their profile relationship');
-select like((select pg_get_constraintdef(oid) from pg_constraint where conname = 'workspace_members_role_check' and conrelid = 'public.workspace_members'::regclass), '%super_admin%', 'workspace membership supports the super-admin role');
+select ok((select pg_get_constraintdef(oid) from pg_constraint where conname = 'workspace_members_role_check' and conrelid = 'public.workspace_members'::regclass) like '%super_admin%', 'workspace membership supports the super-admin role');
 select ok(has_column_privilege('authenticated', 'public.profiles', 'organization', 'UPDATE'), 'authenticated users can request organisation updates under RLS');
 select is((select public.is_workspace_member(-1)), false, 'unknown workspace membership is denied');
 select is((select public.is_workspace_owner(-1)), false, 'unknown workspace ownership is denied');
