@@ -3,7 +3,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppShell } from './components/AppShell'
 import { useAuth } from './contexts/AuthContext'
 import { WorkspaceProvider, useWorkspace } from './contexts/WorkspaceContext'
-import { canManageMembership, canViewAuditLog } from './lib/policies'
+import { canViewAuditLog } from './lib/policies'
 import { ChatProvider } from './contexts/ChatContext'
 
 const DashboardPage = lazy(() => import('./pages/DashboardPage'))
@@ -41,11 +41,6 @@ function ProtectedApp() {
   return <WorkspaceProvider><WorkspaceApp /></WorkspaceProvider>
 }
 
-function ManagerRoute({ children }: { children: React.ReactNode }) {
-  const { currentUser } = useWorkspace()
-  return canManageMembership(currentUser.role) ? children : <Navigate to="/" replace />
-}
-
 function AuditRoute({ children }: { children: React.ReactNode }) {
   const { currentUser } = useWorkspace()
   return canViewAuditLog(currentUser.role) ? children : <Navigate to="/" replace />
@@ -68,7 +63,8 @@ function App() {
           <Route path="chat" element={<ChatPage />} />
           <Route path="trash" element={<TrashPage />} />
           <Route path="settings" element={<SettingsPage />} />
-          <Route path="admin/users" element={<ManagerRoute><UsersPage /></ManagerRoute>} />
+          <Route path="team" element={<UsersPage />} />
+          <Route path="admin/users" element={<UsersPage />} />
           <Route path="admin/audit" element={<AuditRoute><AuditPage /></AuditRoute>} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

@@ -1,5 +1,5 @@
 export const MAX_MESSAGE_LENGTH = 2000
-export interface ChatMessage { id: number; workspace_id: number; sender_id: string; body: string; client_id: string; created_at: string }
+export interface ChatMessage { id: number; workspace_id: number; sender_id: string | null; body: string; client_id: string; created_at: string }
 export function validateMessage(body: string) {
   if (!body.trim()) return 'Write a message before sending.'
   if (body.trim().length > MAX_MESSAGE_LENGTH) return 'Keep messages to 2,000 characters or fewer.'

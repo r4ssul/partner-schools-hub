@@ -396,7 +396,10 @@ main { min-height: calc(100vh - 170px); }
 .member-identity .member-organization { display: flex; align-items: center; gap: 4px; color: #47656a; }
 .member-email { overflow-wrap: anywhere; }
 .member-organization svg { flex: 0 0 auto; color: var(--teal-700); }
-.member-row.is-inactive { opacity: .6; }
+.member-row.is-inactive { background: #fafcfc; }
+.former-member-note { margin: 0; padding: 14px 18px; color: var(--muted); background: var(--teal-50); font-size: 12px; line-height: 1.6; }
+.team-toolbar { gap: 14px; flex-wrap: wrap; }
+.team-toolbar .segmented-control { max-width: 100%; }
 .role-label { width: 88px; height: 26px; display: grid; place-items: center; border-radius: 13px; background: #f0f3f4; color: #5e6972; font-size: 10px; }
 .role-label--owner { color: var(--teal-700); background: var(--teal-100); }
 .role-label--super_admin { color: #275f91; background: var(--blue-bg); }

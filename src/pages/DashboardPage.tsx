@@ -1,3 +1,4 @@
+import { FORMER_MEMBER } from '../lib/policies'
 import { useState } from 'react'
 import { CalendarDays, CheckSquare2, ChevronRight, Clock3, Folder, FolderPlus, Link2, LockKeyhole, MoreHorizontal, Plus, Upload, UsersRound } from 'lucide-react'
 import { Link, useOutletContext } from 'react-router-dom'
@@ -12,9 +13,9 @@ import type { EntityKind, HubEvent, Meeting, Task } from '../types'
 
 interface OutletActions { openCreate: (kind: EntityKind) => void }
 
-function MemberAvatar({ id }: { id: string }) {
+function MemberAvatar({ id }: { id: string | null }) {
   const { data } = useWorkspace()
-  const member = data.members.find((candidate) => candidate.id === id) ?? data.members[0]
+  const member = data.members.find((candidate) => candidate.id === id) ?? FORMER_MEMBER
   return <Avatar member={member} size="sm" />
 }
 
@@ -51,7 +52,7 @@ function FilesPanel({ openCreate }: { openCreate: (kind: EntityKind) => void }) 
   return (
     <Panel title="Files & knowledge" icon={Folder} className="dashboard-files" action={<><button className="button button--secondary button--small" onClick={() => openCreate('file')}><Upload size={16} /> Upload</button><button className="icon-button icon-button--border" onClick={() => openCreate('folder')} aria-label="Create folder" title="Create folder"><FolderPlus size={18} /></button></>}>
       <div className="folder-strip">{data.folders.filter((folder) => !folder.deletedAt).slice(0, 6).map((folder) => <Link key={folder.id} to={`/files?folder=${folder.id}`}><Folder size={15} />{folder.name}</Link>)}</div>
-      <div className="file-table file-table--compact">{documents.length ? <><div className="file-table__header"><span>Name</span><span>Owner</span><span>Updated</span><span /></div>{documents.map((document) => { const version = document.versions.at(-1)!; const owner = data.members.find((member) => member.id === document.ownerId) ?? data.members[0]; return <div className="file-row" key={document.id}><span className="file-name"><FileGlyph mimeType={version.mimeType} /><strong>{document.name}</strong></span><span>{owner.name}</span><span>{formatDate(document.updatedAt)}</span><button className="icon-button" aria-label={`Actions for ${document.name}`}><MoreHorizontal size={17} /></button></div> })}</> : <div className="dashboard-empty"><Folder size={28} /><strong>No files yet</strong><span>Upload the first shared resource.</span></div>}</div>
+      <div className="file-table file-table--compact">{documents.length ? <><div className="file-table__header"><span>Name</span><span>Owner</span><span>Updated</span><span /></div>{documents.map((document) => { const version = document.versions.at(-1)!; const owner = data.members.find((member) => member.id === document.ownerId) ?? FORMER_MEMBER; return <div className="file-row" key={document.id}><span className="file-name"><FileGlyph mimeType={version.mimeType} /><strong>{document.name}</strong></span><span>{owner.name}</span><span>{formatDate(document.updatedAt)}</span><button className="icon-button" aria-label={`Actions for ${document.name}`}><MoreHorizontal size={17} /></button></div> })}</> : <div className="dashboard-empty"><Folder size={28} /><strong>No files yet</strong><span>Upload the first shared resource.</span></div>}</div>
       <Link className="panel-link" to="/files">View all files <ChevronRight size={16} /></Link>
     </Panel>
   )

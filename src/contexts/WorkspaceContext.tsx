@@ -5,7 +5,7 @@ import { addHours } from 'date-fns'
 import { createInitialWorkspaceData } from '../data/seed'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
 import { isR2FileApiConfigured, uploadFileToR2 } from '../lib/fileApi'
-import { canClearAuditLog, canDeactivateMember, canManageMembership, canViewAuditLog, isTrashExpired } from '../lib/policies'
+import { canClearAuditLog, canDeactivateMember, canDeleteFormerMember, canManageMembership, canViewAuditLog, isTrashExpired } from '../lib/policies'
 import { validateUpload } from '../lib/validation'
 import { fromTokyoInput } from '../lib/date'
 import { INITIAL_SUPER_ADMIN_EMAIL } from '../lib/identity'
@@ -46,6 +46,7 @@ interface WorkspaceContextValue {
   updateProfile: (profile: MemberProfileInput) => Promise<string | null>
   inviteMember: (name: string, email: string, organization: string, jobTitle: string, role: InvitableMemberRole) => Promise<string | null>
   deactivateMember: (memberId: string) => Promise<string | null>
+  deleteFormerMember: (memberId: string, confirmEmail: string) => Promise<{ error: string | null; warning?: string | null }>
   clearAuditLog: (scope: 'activity' | 'members') => Promise<{ error: string | null; deleted: number }>
   trash: TrashItem[]
   resetLocalPreview: () => void
@@ -424,6 +425,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   const inviteMember = useCallback(async (name: string, email: string, organization: string, jobTitle: string, role: InvitableMemberRole) => {
     if (!canManageMembership(currentUser.role)) return 'Only Super Admins can invite people.'
+    const existing = data.members.find((member) => member.email.toLowerCase() === email.trim().toLowerCase())
+    if (existing) return existing.active ? 'This email already belongs to a team member. They can sign in or use Forgot password.' : 'This deactivated account still exists. Ask the Web. Developer to permanently delete it from Former members, then invite this email again.'
     if (supabase && workspaceIdRef.current) {
       const { error: inviteError } = await supabase.functions.invoke('manage-members', { body: { action: 'invite', workspaceId: workspaceIdRef.current, name, email, organization, jobTitle, role } })
       return inviteError ? await functionErrorMessage(inviteError, 'Unable to send the invitation.') : null
@@ -431,7 +434,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     const member: Member = { id: createId('member'), name, email, organization, jobTitle, phone: '', role, canClearLogs: false, color: '#477d5d', active: true, joinedAt: new Date().toISOString() }
     setData((previous) => addAudit({ ...previous, members: [...previous.members, member] }, 'invited', 'member', name))
     return null
-  }, [addAudit, currentUser.role])
+  }, [addAudit, currentUser.role, data.members])
 
   const deactivateMember = useCallback(async (memberId: string) => {
     if (!canManageMembership(currentUser.role)) return 'Only Super Admins can deactivate people.'
@@ -440,11 +443,34 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     if (!canDeactivateMember(currentUser.role, member, data.members)) return 'Super Admins cannot be deactivated.'
     if (supabase && workspaceIdRef.current) {
       const { error: deactivateError } = await supabase.functions.invoke('manage-members', { body: { action: 'deactivate', workspaceId: workspaceIdRef.current, userId: memberId } })
-      if (deactivateError) return deactivateError.message
+      if (deactivateError) return functionErrorMessage(deactivateError, 'Unable to deactivate this member.')
     }
     setData((previous) => addAudit({ ...previous, members: previous.members.map((candidate) => candidate.id === memberId ? { ...candidate, active: false } : candidate) }, 'deactivated', 'member', member.name))
     return null
   }, [addAudit, currentUser.role, data.members])
+
+  const deleteFormerMember = useCallback(async (memberId: string, confirmEmail: string) => {
+    const member = data.members.find((candidate) => candidate.id === memberId)
+    if (!member || !canDeleteFormerMember(currentUser, member)) return { error: 'Only the Web. Developer can permanently delete a former Admin.' }
+    if (confirmEmail.trim().toLowerCase() !== member.email.toLowerCase()) return { error: 'The confirmation email does not match this member.' }
+    if (supabase && workspaceIdRef.current) {
+      const result = await supabase.functions.invoke('manage-members', { body: { action: 'delete', workspaceId: workspaceIdRef.current, userId: memberId, confirmEmail } })
+      if (result.error) return { error: await functionErrorMessage(result.error, 'Unable to delete this account.') }
+      await refreshRef.current()
+      return { error: null, warning: result.data?.warning }
+    }
+    setData((previous) => addAudit({
+      ...previous,
+      members: previous.members.filter((candidate) => candidate.id !== memberId),
+      documents: previous.documents.map((document) => ({ ...document, ownerId: document.ownerId === memberId ? null : document.ownerId, versions: document.versions.map((version) => ({ ...version, uploadedBy: version.uploadedBy === memberId ? null : version.uploadedBy })) })),
+      tasks: previous.tasks.map((task) => ({ ...task, assigneeId: task.assigneeId === memberId ? null : task.assigneeId, createdBy: task.createdBy === memberId ? null : task.createdBy })),
+      events: previous.events.map((event) => ({ ...event, attendeeIds: event.attendeeIds.filter((id) => id !== memberId), createdBy: event.createdBy === memberId ? null : event.createdBy })),
+      meetings: previous.meetings.map((meeting) => ({ ...meeting, attendeeIds: meeting.attendeeIds.filter((id) => id !== memberId), createdBy: meeting.createdBy === memberId ? null : meeting.createdBy })),
+      links: previous.links.map((link) => ({ ...link, createdBy: link.createdBy === memberId ? null : link.createdBy })),
+      audit: previous.audit.map((entry) => ({ ...entry, actorId: entry.actorId === memberId ? null : entry.actorId })),
+    }, 'permanently deleted', 'member', member.name))
+    return { error: null }
+  }, [addAudit, currentUser, data.members])
 
   const clearAuditLog = useCallback(async (scope: 'activity' | 'members') => {
     if (!canClearAuditLog(currentUser)) return { error: 'Only Rassul has permission to clear logs.', deleted: 0 }
@@ -481,7 +507,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
   }, [])
 
-  const value = useMemo(() => ({ data, workspaceId, currentUser, loading, error, uploadUrls, addItem, uploadFile, addDocumentVersion, updateTaskStatus, updateMeetingNotes, archiveItem, restoreItem, markNotificationRead, updateSettings, updateProfile, inviteMember, deactivateMember, clearAuditLog, trash, resetLocalPreview }), [data, workspaceId, currentUser, loading, error, uploadUrls, addItem, uploadFile, addDocumentVersion, updateTaskStatus, updateMeetingNotes, archiveItem, restoreItem, markNotificationRead, updateSettings, updateProfile, inviteMember, deactivateMember, clearAuditLog, trash, resetLocalPreview])
+  const value = useMemo(() => ({ data, workspaceId, currentUser, loading, error, uploadUrls, addItem, uploadFile, addDocumentVersion, updateTaskStatus, updateMeetingNotes, archiveItem, restoreItem, markNotificationRead, updateSettings, updateProfile, inviteMember, deactivateMember, deleteFormerMember, clearAuditLog, trash, resetLocalPreview }), [data, workspaceId, currentUser, loading, error, uploadUrls, addItem, uploadFile, addDocumentVersion, updateTaskStatus, updateMeetingNotes, archiveItem, restoreItem, markNotificationRead, updateSettings, updateProfile, inviteMember, deactivateMember, deleteFormerMember, clearAuditLog, trash, resetLocalPreview])
 
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>
 }

@@ -3,7 +3,7 @@ import { Activity, CalendarClock, LoaderCircle, ShieldAlert, Trash2, UsersRound 
 import { Avatar } from '../components/Avatar'
 import { Modal } from '../components/Modal'
 import { useWorkspace } from '../contexts/WorkspaceContext'
-import { canClearAuditLog } from '../lib/policies'
+import { canClearAuditLog, FORMER_MEMBER } from '../lib/policies'
 import { formatDateTime } from '../lib/date'
 
 type LogScope = 'activity' | 'members'
@@ -47,7 +47,7 @@ export default function AuditPage() {
           <div className="segmented-control" aria-label="Audit log view"><button className={view === 'activity' ? 'is-active' : ''} onClick={() => setView('activity')}><Activity size={16} /> Activity</button><button className={view === 'members' ? 'is-active' : ''} onClick={() => setView('members')}><UsersRound size={16} /> Members</button></div>
         </div>
         {entries.length ? <div className="audit-list">{entries.map((entry) => {
-          const actor = data.members.find((member) => member.id === entry.actorId) ?? currentUser
+          const actor = data.members.find((member) => member.id === entry.actorId) ?? FORMER_MEMBER
           return <div key={entry.id}><Avatar member={actor} size="sm" /><span><strong>{actor.name} {entry.action} {entry.entityName}</strong><small>{entry.entityKind}</small></span><time><CalendarClock size={15} />{formatDateTime(entry.createdAt)}</time></div>
         })}</div> : <div className="empty-state"><Activity size={36} /><h3>No {view === 'members' ? 'member changes' : 'activity'} recorded</h3><p>New {view === 'members' ? 'invitations and access changes' : 'workspace actions'} will appear here.</p></div>}
       </section>

@@ -100,6 +100,14 @@ A fresh `E2E_INVITE_URL` and `E2E_INVITED_PASSWORD` enable the invitation-accept
 
 ## Hosting scope
 
+### Team directory and former accounts
+
+All active members can open `/team` (or the existing `/admin/users` URL). Admins get an active-team directory with no invitation, deactivation, former-member, or deletion controls. Super Admins can view former members and their profiles; the access-description text is shared verbatim through `ACCESS_MODEL_TEXT`.
+
+Deactivation retains the Auth account and reserves its email. Only the active Super Admin with the existing destructive-controls capability (`can_clear_logs`, currently Rassul) can permanently delete an inactive Admin from **Former members**, after typing the exact email. The trusted `manage-members` function checks database permissions and hard-deletes through Supabase Auth. Self-deletion, active accounts, Super Admins, and accounts linked to another workspace are rejected. No accounts are automatically removed by the migration.
+
+Deletion removes login/profile/membership and dependent private records. Shared content, file versions/storage paths, chat messages and audit history remain; nullable author references are shown as “Former member,” and tasks become unassigned. Old membership audit entries remain until separately cleared. The email can then receive a fresh invitation as a new identity. The migration does not delete R2 objects. Run `supabase/tests/former_members.test.sql` to verify directory permissions and content-preserving deletion with rollback-only fixtures.
+
 GitHub Pages is the only frontend deployment target. The obsolete local Sites manifest was removed; Supabase and Cloudflare R2 remain the sources of truth. The remote legacy Sites publication must be deleted through the Sites interface because the connector has no delete operation.
 
 The production workflow always disables local preview. Missing Supabase configuration must never open a demo workspace publicly.

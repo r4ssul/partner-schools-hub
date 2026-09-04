@@ -41,7 +41,7 @@ export interface DocumentVersion {
   storagePath: string
   size: number
   mimeType: string
-  uploadedBy: string
+  uploadedBy: string | null
   createdAt: string
 }
 
@@ -49,7 +49,7 @@ export interface HubDocument {
   id: string
   name: string
   folderId: string
-  ownerId: string
+  ownerId: string | null
   updatedAt: string
   deletedAt: string | null
   versions: DocumentVersion[]
@@ -64,7 +64,7 @@ export interface HubEvent {
   location: string
   attendeeIds: string[]
   documentIds: string[]
-  createdBy: string
+  createdBy: string | null
   updatedAt: string
   deletedAt: string | null
 }
@@ -80,7 +80,7 @@ export interface Meeting {
   attendeeIds: string[]
   documentIds: string[]
   status: MeetingStatus
-  createdBy: string
+  createdBy: string | null
   updatedAt: string
   deletedAt: string | null
 }
@@ -88,7 +88,7 @@ export interface Meeting {
 export interface Task {
   id: string
   title: string
-  assigneeId: string
+  assigneeId: string | null
   dueAt: string
   status: TaskStatus
   priority: TaskPriority
@@ -96,7 +96,7 @@ export interface Task {
   sourceMeetingId: string | null
   sourceEventId: string | null
   documentIds: string[]
-  createdBy: string
+  createdBy: string | null
   updatedAt: string
   deletedAt: string | null
 }
@@ -107,7 +107,7 @@ export interface QuickLink {
   url: string
   description: string
   category: string
-  createdBy: string
+  createdBy: string | null
   updatedAt: string
   deletedAt: string | null
 }

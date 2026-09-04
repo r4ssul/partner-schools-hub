@@ -68,7 +68,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         if (incoming.length < PAGE_SIZE) historyComplete.current = true
         setHasMore(!historyComplete.current)
         const readAt = lastRead.current
-        const countResult = await client.from('chat_messages').select('id', { count: 'exact', head: true }).eq('workspace_id', workspaceId).gt('id', readAt).neq('sender_id', userId)
+        const countResult = await client.from('chat_messages').select('id', { count: 'exact', head: true }).eq('workspace_id', workspaceId).gt('id', readAt).or('sender_id.is.null,sender_id.neq.' + userId)
         if (countResult.error) throw countResult.error
         if (active) { if (readAt === lastRead.current) setUnread(countResult.count || 0); setError(null) }
       } catch (reason) { if (active) setError((reason as Error).message || 'Unable to load chat.') }
@@ -93,6 +93,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           setMessages((previous) => mergeMessages(previous, [message]))
           if (message.sender_id !== userId && message.id > lastRead.current) setUnread((value) => value + 1)
         }
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'chat_messages', filter: 'workspace_id=eq.' + workspaceId }, (payload) => {
+        if (active) setMessages((previous) => mergeMessages(previous, [payload.new as ChatMessage]))
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_read_states', filter: 'user_id=eq.' + userId }, () => { void reload() })
       .subscribe((status) => {
