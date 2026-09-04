@@ -9,7 +9,9 @@ insert into auth.users(id, email, raw_user_meta_data) values
 ('00000000-0000-4000-8000-000000009042', 'qa-super@invalid.example', '{"full_name":"QA Super"}'),
 ('00000000-0000-4000-8000-000000009043', 'qa-admin@invalid.example', '{"full_name":"QA Admin"}'),
 ('00000000-0000-4000-8000-000000009044', 'qa-stranger@invalid.example', '{"full_name":"QA Stranger"}');
-update auth.users set encrypted_password='fixture-password-hash', email_confirmed_at=now()
+update auth.users set email_confirmed_at=now()
+where id in ('00000000-0000-4000-8000-000000009041','00000000-0000-4000-8000-000000009042','00000000-0000-4000-8000-000000009043','00000000-0000-4000-8000-000000009044');
+update auth.users set encrypted_password='fixture-password-hash'
 where id in ('00000000-0000-4000-8000-000000009041','00000000-0000-4000-8000-000000009042','00000000-0000-4000-8000-000000009043','00000000-0000-4000-8000-000000009044');
 insert into public.workspaces(id, name) overriding system value values (-9041, 'QA Workspace'), (-9042, 'Other QA Workspace');
 insert into public.workspace_members(workspace_id,user_id,role,can_clear_logs) values
@@ -81,13 +83,21 @@ select is((select count(*)::int from public.chat_messages where workspace_id=-90
 select throws_ok($q$select public.send_chat_message(-9041,'Inactive','00000000-0000-4000-8000-000000009095')$q$,'P0001','Active workspace membership required','deactivated admin cannot send');
 reset role;
 -- A verified invitation is an Auth session, but not yet workspace access.
-insert into auth.users(id,email,email_confirmed_at,invited_at,raw_user_meta_data)
-values ('00000000-0000-4000-8000-000000009050','qa-pending@invalid.example',now(),now(),'{"full_name":"Pending invite","password_setup_complete":true}');
+insert into auth.users(id,email,invited_at,raw_user_meta_data)
+values ('00000000-0000-4000-8000-000000009050','qa-pending@invalid.example',now(),'{"full_name":"Pending invite","password_setup_complete":true}');
+-- Match Supabase verification: it writes a random password before confirming.
+update auth.users set encrypted_password='supabase-generated-temporary-password'
+where id='00000000-0000-4000-8000-000000009050';
+update auth.users set email_confirmed_at=now()
+where id='00000000-0000-4000-8000-000000009050';
 insert into public.workspace_members(workspace_id,user_id,role,can_clear_logs)
 values (-9041,'00000000-0000-4000-8000-000000009050','super_admin',true);
 set local role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000009050',true);
-select is(public.has_completed_password_setup(),false,'verified invitation without a password is incomplete despite forged user metadata');
+select is(public.has_completed_password_setup(),false,'Supabase temporary password and forged user metadata cannot complete setup');
+select ok(not has_table_privilege('authenticated','public.account_activation','insert'),'browser cannot mark activation complete');
+select ok(not has_table_privilege('authenticated','public.account_activation','update'),'browser cannot alter activation records');
+select ok(not has_function_privilege('authenticated','public.record_verified_password_setup()','execute'),'browser cannot invoke activation trigger directly');
 select is(public.is_workspace_member(-9041),false,'pending invite does not grant workspace access');
 select is(public.is_workspace_manager(-9041),false,'pending manager has no management access');
 select is(public.is_workspace_auditor(-9041),false,'pending manager has no audit access');
