@@ -812,9 +812,6 @@ main { min-height: calc(100vh - 170px); }
 .mini-calendar-list > .dashboard-empty > span { font-size: 11px; }
 
 /* Shared team conversation. */
-.dashboard-chat { grid-column: 1 / -1; }
-.dashboard-chat .panel__body { padding-top: 0; }
-.dashboard-chat .panel__action .text-button { min-height: 44px; display: flex; gap: 5px; align-items: center; }
 .primary-nav > a { position: relative; }
 .chat-nav-badge { min-width: 18px; height: 18px; padding: 0 4px; display: inline-grid; place-items: center; background: var(--teal-800); color: white; font-size: 10px; border-radius: 10px; }
 .chat-page-layout { display: grid; grid-template-columns: minmax(0, 1fr) 275px; gap: 22px; align-items: start; }

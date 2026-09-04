@@ -24,7 +24,7 @@ async function resetWorkspace(page: import('@playwright/test').Page) {
   await page.getByLabel('Email address').fill(PREVIEW_EMAIL)
   await page.getByLabel('Password', { exact: true }).fill(PREVIEW_PASSWORD)
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
-  await expect(page.getByRole('heading', { name: 'Good morning, Jan' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Welcome, Jan' })).toBeVisible()
 }
 
 async function uploadFixture(page: import('@playwright/test').Page) {
@@ -64,7 +64,7 @@ test('protects the portal with login and rejects invalid credentials', async ({ 
   await page.getByRole('button', { name: 'Show password' }).click()
   await expect(page.getByLabel('Password', { exact: true })).toHaveAttribute('type', 'text')
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
-  await expect(page.getByRole('heading', { name: 'Good morning, Jan' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Welcome, Jan' })).toBeVisible()
 })
 
 test('renders the approved home hierarchy and empty production states', async ({ page }) => {
@@ -355,12 +355,19 @@ test('chat sends multiline messages, renders text safely, and persists on reload
   expect(dimensions.scroll).toBeLessThanOrEqual(dimensions.client)
 })
 
-test('home chat preview opens the full conversation', async ({ page }) => {
-  const panel = page.locator('.dashboard-chat')
-  await panel.getByRole('textbox', { name: 'Message your team' }).fill('Quick update from Home')
-  await panel.getByRole('button', { name: 'Send message' }).click()
-  await expect(panel.locator('.chat-bubble')).toContainText('Quick update from Home')
-  await panel.getByRole('link', { name: /Open chat/ }).click()
+test('home welcomes the user without a chat block and keeps the separate chat page', async ({ page }) => {
+  await expect(page.getByRole('heading', { name: 'Welcome, Jan', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Team chat', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('textbox', { name: 'Message your team' })).toHaveCount(0)
+  await (await mainNavLink(page, 'Chat')).click()
   await expect(page).toHaveURL(/\/chat$/)
-  await expect(page.locator('.chat-bubble')).toContainText('Quick update from Home')
+  await expect(page.getByRole('heading', { name: 'Team chat', level: 1 })).toBeVisible()
+  await page.getByRole('textbox', { name: 'Message your team' }).fill('Update from the Chat page')
+  await page.getByRole('button', { name: 'Send message' }).click()
+  await expect(page.locator('.chat-bubble')).toContainText('Update from the Chat page')
+  await (await mainNavLink(page, 'Home')).click()
+  await expect(page.getByRole('heading', { name: 'Welcome, Jan', exact: true })).toBeVisible()
+  await expect(page.getByRole('textbox', { name: 'Message your team' })).toHaveCount(0)
+  await (await mainNavLink(page, 'Chat')).click()
+  await expect(page.locator('.chat-bubble')).toContainText('Update from the Chat page')
 })

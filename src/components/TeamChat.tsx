@@ -1,13 +1,11 @@
 import { useEffect, useId, useRef, useState } from 'react'
-import { ArrowDown, ArrowUpRight, LoaderCircle, LockKeyhole, MessageCircle, Send } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { ArrowDown, LoaderCircle, LockKeyhole, MessageCircle, Send } from 'lucide-react'
 import { useChat } from '../contexts/ChatContext'
 import { useWorkspace } from '../contexts/WorkspaceContext'
 import { MAX_MESSAGE_LENGTH } from '../lib/chat'
 import { dateKeyInTimeZone, formatDate, formatTime } from '../lib/date'
 import { isLocalPreviewEnabled } from '../lib/runtime'
 import { Avatar } from './Avatar'
-import { Panel } from './Panel'
 
 export function TeamChat({ compact = false }: { compact?: boolean }) {
   const { data, currentUser } = useWorkspace()
@@ -94,9 +92,4 @@ export function TeamChat({ compact = false }: { compact?: boolean }) {
       {sendError ? <p className="field-error" role="alert">{sendError} Your message has been kept.</p> : null}
     </form>
   </div>
-}
-
-export function ChatPanel() {
-  const { unread } = useChat()
-  return <Panel title="Team chat" icon={MessageCircle} className="dashboard-chat" action={<Link className="text-button" to="/chat">{unread ? unread + ' unread · ' : ''}Open chat <ArrowUpRight size={16} /></Link>}><TeamChat compact /></Panel>
 }

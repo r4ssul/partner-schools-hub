@@ -6,7 +6,6 @@ import { Avatar } from '../components/Avatar'
 import { FileGlyph } from '../components/FileGlyph'
 import { Panel } from '../components/Panel'
 import { StatusSelect } from '../components/StatusSelect'
-import { ChatPanel } from '../components/TeamChat'
 import { useWorkspace } from '../contexts/WorkspaceContext'
 import { formatDate, formatTime } from '../lib/date'
 import type { EntityKind, HubEvent, Meeting, Task } from '../types'
@@ -113,7 +112,7 @@ export default function DashboardPage() {
   const tasks = data.tasks.filter((task) => !task.deletedAt).sort((a, b) => a.dueAt.localeCompare(b.dueAt))
   return (
     <div className="page dashboard-page">
-      <div className="page-heading dashboard-heading"><div><h1>Good morning, {currentUser.name.split(' ')[0]}</h1></div><button className="button button--primary mobile-add-button" onClick={() => openCreate('task')}><Plus size={19} /> Add new</button></div>
+      <div className="page-heading dashboard-heading"><div><h1>Welcome, {currentUser.name.split(' ')[0]}</h1></div><button className="button button--primary mobile-add-button" onClick={() => openCreate('task')}><Plus size={19} /> Add new</button></div>
       <div className="dashboard-grid">
         <ComingUp events={events} tasks={tasks} />
         <FilesPanel openCreate={openCreate} />
@@ -122,7 +121,6 @@ export default function DashboardPage() {
         <MeetingsPanel meetings={meetings} tasks={tasks} openCreate={openCreate} />
         <TasksPanel tasks={tasks} openCreate={openCreate} />
         <SecureAccess />
-        <ChatPanel />
       </div>
     </div>
   )

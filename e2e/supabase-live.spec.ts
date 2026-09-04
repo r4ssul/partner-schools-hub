@@ -11,7 +11,7 @@ async function signIn(page: import('@playwright/test').Page, email: string, pass
   await page.getByLabel('Email address').fill(email)
   await page.getByLabel('Password', { exact: true }).fill(password)
   await page.getByRole('button', { name: /Sign in/ }).click()
-  await expect(page.getByRole('heading', { name: /Good morning/ })).toBeVisible()
+  await expect(page.getByRole('heading', { name: /^Welcome,/ })).toBeVisible()
 }
 
 test.describe('provisioned Supabase workspace', () => {
@@ -24,7 +24,7 @@ test.describe('provisioned Supabase workspace', () => {
     await expect(page.getByText(/reset email is on its way/i)).toBeVisible()
     await page.getByLabel('Password', { exact: true }).fill(ownerPassword)
     await page.getByRole('button', { name: /Sign in/ }).click()
-    await expect(page.getByRole('heading', { name: /Good morning/ })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /^Welcome,/ })).toBeVisible()
   })
 
   test('invitation acceptance sets the invited password', async ({ page }) => {
