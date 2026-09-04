@@ -18,20 +18,21 @@
             <tr>
               <td style="padding:32px 28px 12px;">
                 <p style="margin:0 0 9px;color:#087278;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;">Private workspace invitation</p>
-                <h1 style="margin:0 0 16px;color:#17232b;font-size:26px;line-height:1.25;">You’ve been invited to {{ .Data.workspace_name }}</h1>
-                <p style="margin:0 0 18px;color:#52616c;font-size:15px;line-height:1.65;"><strong style="color:#17232b;">{{ .Data.invited_by_name }}</strong> from <strong style="color:#17232b;">{{ .Data.inviter_organization }}</strong> invited you to join Partner Schools Hub on behalf of <strong style="color:#17232b;">{{ .Data.organization }}</strong>.</p>
+                <h1 style="margin:0 0 16px;color:#17232b;font-size:26px;line-height:1.25;">You’ve been invited to {{ if .Data.workspace_name }}{{ .Data.workspace_name }}{{ else }}Partner Schools Hub{{ end }}</h1>
+                <p style="margin:0 0 18px;color:#52616c;font-size:15px;line-height:1.65;"><strong style="color:#17232b;">{{ if .Data.invited_by_name }}{{ .Data.invited_by_name }}{{ else }}A Partner Schools Hub administrator{{ end }}</strong>{{ if .Data.inviter_organization }} from <strong style="color:#17232b;">{{ .Data.inviter_organization }}</strong>{{ end }} invited you to join Partner Schools Hub{{ if .Data.organization }} on behalf of <strong style="color:#17232b;">{{ .Data.organization }}</strong>{{ end }}.</p>
                 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 24px;border:1px solid #cfe3e2;border-radius:9px;background:#f1f9f8;">
-                  <tr><td style="padding:18px 20px;color:#31545a;font-size:14px;line-height:1.6;"><strong style="display:block;margin-bottom:4px;color:#005b5c;">Your access: {{ .Data.role_label }}</strong>Use the private workspace to collaborate on shared files, calendars, meetings, tasks, and trusted links.</td></tr>
+                  <tr><td style="padding:18px 20px;color:#31545a;font-size:14px;line-height:1.6;"><strong style="display:block;margin-bottom:4px;color:#005b5c;">Your access: {{ if .Data.role_label }}{{ .Data.role_label }}{{ else }}Admin{{ end }}</strong>Use the private workspace to collaborate on shared files, calendars, meetings, tasks, trusted links, and team chat.</td></tr>
                 </table>
                 <table role="presentation" cellspacing="0" cellpadding="0" style="margin:0 0 24px;">
                   <tr><td style="border-radius:8px;background:#006a6d;"><a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:14px 23px;color:#ffffff;font-size:15px;font-weight:700;text-decoration:none;">Accept invitation securely</a></td></tr>
                 </table>
-                <p style="margin:0 0 12px;color:#52616c;font-size:13px;line-height:1.6;">The activation link is personal, expires in one hour, and lets you create your password. Do not forward it.</p>
-                <p style="margin:0;color:#73808a;font-size:12px;line-height:1.6;">If you were not expecting this invitation, you can safely ignore this email. No account access is granted until the secure link is accepted.</p>
+                <p style="margin:0 0 12px;color:#52616c;font-size:13px;line-height:1.6;">Open your personal activation link, then set a password to finish joining. The link expires in one hour. Do not forward it.</p>
+                <p style="margin:0 0 12px;color:#52616c;font-size:13px;line-height:1.6;">Workspace access stays locked until you have saved your password. Your workspace: <a href="https://r4ssul.github.io/partner-schools-hub/" style="color:#006a6d;">Partner Schools Hub</a>.</p>
+                <p style="margin:0;color:#73808a;font-size:12px;line-height:1.6;">If you were not expecting this invitation, you can safely ignore this email or contact the person who invited you.</p>
               </td>
             </tr>
             <tr>
-              <td style="padding:22px 28px 26px;color:#73808a;font-size:11px;line-height:1.6;">Sent by Partner Schools Hub on behalf of {{ .Data.invited_by_name }}. This is an authentication message, not a marketing email.</td>
+              <td style="padding:22px 28px 26px;color:#73808a;font-size:11px;line-height:1.6;">Sent for Partner Schools Hub{{ if .Data.invited_by_name }} on behalf of {{ .Data.invited_by_name }}{{ end }}. This is an authentication message, not a marketing email.</td>
             </tr>
           </table>
         </td>

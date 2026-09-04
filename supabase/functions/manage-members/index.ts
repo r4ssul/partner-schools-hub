@@ -27,6 +27,8 @@ Deno.serve(async (request) => {
   const admin = createClient(projectUrl, secretKey, { auth: { persistSession: false, autoRefreshToken: false } })
   const { data: authData, error: authError } = await caller.auth.getUser()
   if (authError || !authData.user) return json({ error: 'Authentication required' }, 401)
+  const { data: setupComplete, error: setupError } = await caller.rpc('has_completed_password_setup')
+  if (setupError || setupComplete !== true) return json({ error: 'Set your password before accessing the workspace' }, 403)
 
   let body: ManageMemberRequest
   try { body = await request.json() } catch { return json({ error: 'Invalid request body' }, 400) }

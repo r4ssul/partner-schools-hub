@@ -32,6 +32,12 @@ test.describe('provisioned Supabase workspace', () => {
     const invitedPassword = process.env.E2E_INVITED_PASSWORD
     test.skip(!inviteUrl || !invitedPassword, 'Provide a fresh Supabase invitation URL and password.')
     await page.goto(inviteUrl!)
+    await expect(page.getByRole('heading', { name: 'Activate your account' })).toBeVisible()
+    await page.goto('/files')
+    await expect(page).toHaveURL(/\/accept-invite$/)
+    await expect(page.getByRole('heading', { name: 'Files & knowledge' })).toHaveCount(0)
+    await page.reload()
+    await expect(page.getByRole('heading', { name: 'Activate your account' })).toBeVisible()
     await page.getByLabel('New password').fill(invitedPassword!)
     await page.getByLabel('Confirm password').fill(invitedPassword!)
     await page.getByRole('button', { name: /Activate account|Save password/ }).click()

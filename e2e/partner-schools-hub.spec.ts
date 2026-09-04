@@ -80,6 +80,17 @@ test('renders the approved home hierarchy and empty production states', async ({
   await expect(page.getByRole('heading', { name: 'Files & knowledge' })).toBeVisible()
 })
 
+test('missing activation session cannot show a verified setup form', async ({ page }) => {
+  await page.locator('.user-button').click()
+  await page.getByRole('menuitem', { name: 'Sign out' }).click()
+  for (const route of ['/accept-invite', '/reset-password']) {
+    await page.goto(route)
+    await expect(page.getByRole('heading', { name: 'Open a valid setup link' })).toBeVisible()
+    await expect(page.getByLabel('New password')).toHaveCount(0)
+    await expect(page.getByRole('link', { name: 'Back to sign in' })).toBeVisible()
+  }
+})
+
 test('provides discoverable search, functional dashboard tabs, and keyboard-safe creation', async ({ page }) => {
   if ((page.viewportSize()?.width ?? 1000) > 640) {
     await page.getByRole('button', { name: 'Search Partner Schools Hub' }).click()

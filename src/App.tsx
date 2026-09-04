@@ -33,9 +33,11 @@ function WorkspaceApp() {
 }
 
 function ProtectedApp() {
-  const { user, loading } = useAuth()
-  if (loading) return <LoadingScreen />
+  const { user, loading, passwordSetup, refreshPasswordSetup, signOut } = useAuth()
+  if (loading || (user && passwordSetup === 'checking')) return <LoadingScreen />
   if (!user) return <Navigate to="/login" replace />
+  if (passwordSetup === 'required') return <Navigate to="/accept-invite" replace />
+  if (passwordSetup === 'error') return <div className="loading-screen"><h1>We couldn’t verify your account</h1><p role="alert">Workspace access is paused until verification succeeds.</p><button className="button button--primary" onClick={() => void refreshPasswordSetup()}>Try again</button><button className="text-button" onClick={() => void signOut()}>Sign out</button></div>
   return <WorkspaceProvider><WorkspaceApp /></WorkspaceProvider>
 }
 

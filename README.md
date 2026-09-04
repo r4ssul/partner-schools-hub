@@ -53,7 +53,7 @@ The browser suite builds in test mode, enables the isolated preview, and runs at
    supabase secrets set SUPABASE_SECRET_KEY=... RESEND_API_KEY=... DISPATCH_SECRET=... APP_URL=https://r4ssul.github.io/partner-schools-hub EMAIL_FROM='Partner Schools Hub <notifications@YOUR_DOMAIN>'
    ```
 
-6. Configure Resend as Supabase custom SMTP. Allow only the production `/accept-invite` and `/reset-password` redirect URLs.
+6. Configure Resend (or another verified provider) as custom SMTP, then publish the hosted invitation template with `SUPABASE_PROJECT_REF=YOUR_PROJECT_REF SUPABASE_ACCESS_TOKEN=YOUR_PERSONAL_ACCESS_TOKEN node scripts/sync-invite-template.mjs` (provide secrets privately through your environment). Local `config.toml` and HTML files alone do not update hosted Auth templates. Supabase currently rejects custom email templates on free projects using its default provider; custom SMTP or a plan upgrade is required. Custom SMTP also enables a branded sender address. Allow only the production `/accept-invite` and `/reset-password` redirect URLs.
 7. On a fresh installation, sign in as Rassul to create the single workspace and standard folders. Invite Jan through Team access, then assign his `workspace_members.role` to `super_admin` through the trusted Supabase dashboard. All other invitees receive `admin`. Migration 202609040012 gives the two existing named accounts equal Super Admin roles and grants only Rassul log-clearing permission.
 8. Schedule `dispatch-notifications` through Supabase Cron using an `x-dispatch-secret` stored in Vault. The database reminder job runs daily at 08:00 Asia/Tokyo.
 9. Authenticate Wrangler, create the private R2 bucket, configure the Worker secrets, and deploy the file API:
@@ -95,6 +95,7 @@ A fresh `E2E_INVITE_URL` and `E2E_INVITED_PASSWORD` enable the invitation-accept
 - Versioned local preview storage, route-level lazy loading, keyboard-visible focus, reduced motion support, and fixed mobile navigation.
 - Generated full-text indexes, indexed workspace policy checks, soft deletion, and 30-day trash retention.
 - Persistent shared team chat with RLS-protected history, authenticated sender identity, idempotent sends, a 2,000-character limit, a 30-message/minute server limit, unread indicators, and Realtime updates. The latest 100 messages load first, with older-history pagination. Direct/private messages and chat attachments are not included.
+- Invitation verification creates a restricted setup session, not workspace access. `has_completed_password_setup()` checks the server-owned Auth password state; RLS helpers and trusted functions deny access until a password is saved. Client metadata and browser flags cannot unlock access. Abandoning setup routes back to activation; “Back to sign in” signs out the temporary session.
 - Creation dialogs support drag-and-drop upload, nested folder choices, duplicate-folder checks, checkbox attendees/linked files, Tokyo-time validation, and atomic database creation of items and their relations.
 
 ## Hosting scope
@@ -107,7 +108,7 @@ The production workflow always disables local preview. Missing Supabase configur
 
 Run the transaction-only database suite with `supabase test db` locally, or `supabase db query --linked --file supabase/tests/roles_chat_creation.test.sql` against a linked project. It creates its own uniquely identified fixtures and rolls back every row. It checks both management identities, the separate log-clearing capability, Admin restrictions, non-member/deactivated access, sender identity, retry deduplication, read-state privacy, and cross-workspace creation links.
 
-Branded authentication email requires custom SMTP. The default Supabase email provider has not been replaced by this release.
+The hosted invitation subject/body are deployed separately with `scripts/sync-invite-template.mjs`, which patches only those two fields and verifies the saved result. As of 2026-09-04, the live project's update is blocked by Supabase's free-tier/default-provider restriction; the branded template is ready but is **not live** until custom SMTP is configured or the plan is upgraded and the script succeeds. The default sender remains Supabase Auth until custom SMTP is configured. Previously delivered emails are unchanged; test with a fresh invitation.
 
 ## Release checklist
 
