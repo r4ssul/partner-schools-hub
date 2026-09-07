@@ -3,7 +3,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppShell } from './components/AppShell'
 import { useAuth } from './contexts/AuthContext'
 import { WorkspaceProvider, useWorkspace } from './contexts/WorkspaceContext'
-import { canViewAuditLog } from './lib/policies'
+import { canClearAuditLog, canViewAuditLog } from './lib/policies'
 import { ChatProvider } from './contexts/ChatContext'
 
 const DashboardPage = lazy(() => import('./pages/DashboardPage'))
@@ -17,6 +17,7 @@ const UsersPage = lazy(() => import('./pages/UsersPage'))
 const TrashPage = lazy(() => import('./pages/TrashPage'))
 const SettingsPage = lazy(() => import('./pages/SettingsPage'))
 const AuditPage = lazy(() => import('./pages/AuditPage'))
+const DeveloperPage = lazy(() => import('./pages/DeveloperPage'))
 const LoginPage = lazy(() => import('./pages/LoginPage'))
 const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'))
 
@@ -46,6 +47,11 @@ function AuditRoute({ children }: { children: React.ReactNode }) {
   return canViewAuditLog(currentUser.role) ? children : <Navigate to="/" replace />
 }
 
+function DeveloperRoute({ children }: { children: React.ReactNode }) {
+  const { currentUser } = useWorkspace()
+  return canClearAuditLog(currentUser) ? children : <Navigate to="/" replace />
+}
+
 function App() {
   return (
     <Suspense fallback={<LoadingScreen />}>
@@ -66,6 +72,7 @@ function App() {
           <Route path="team" element={<UsersPage />} />
           <Route path="admin/users" element={<UsersPage />} />
           <Route path="admin/audit" element={<AuditRoute><AuditPage /></AuditRoute>} />
+          <Route path="admin/site" element={<DeveloperRoute><DeveloperPage /></DeveloperRoute>} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

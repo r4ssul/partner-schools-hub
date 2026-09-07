@@ -47,7 +47,7 @@ interface WorkspaceContextValue {
   inviteMember: (name: string, email: string, organization: string, jobTitle: string, role: InvitableMemberRole) => Promise<string | null>
   deactivateMember: (memberId: string) => Promise<string | null>
   deleteFormerMember: (memberId: string, confirmEmail: string) => Promise<{ error: string | null; warning?: string | null }>
-  clearAuditLog: (scope: 'activity' | 'members') => Promise<{ error: string | null; deleted: number }>
+  clearAuditLog: (scope: 'activity' | 'members' | 'all') => Promise<{ error: string | null; deleted: number }>
   trash: TrashItem[]
   resetLocalPreview: () => void
 }
@@ -133,7 +133,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       if (membership.error || !membership.data) throw new Error(membership.error?.message || 'No active workspace membership')
       const workspaceId = Number(membership.data.workspace_id)
       workspaceIdRef.current = workspaceId
-      const [workspace, profiles, folders, documents, events, meetings, tasks, links, notifications, audit] = await Promise.all([
+      const [workspace, profiles, folders, documents, events, meetings, tasks, links, notifications, preferences, audit] = await Promise.all([
         client.from('workspaces').select('name, timezone').eq('id', workspaceId).single(),
         client.from('workspace_members').select('user_id, role, can_clear_logs, active, joined_at, profiles(full_name,email,avatar_color,organization,job_title,phone)').eq('workspace_id', workspaceId),
         client.from('folders').select('*').eq('workspace_id', workspaceId),
@@ -143,11 +143,12 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         client.from('tasks').select('*, task_documents(document_id)').eq('workspace_id', workspaceId),
         client.from('quick_links').select('*').eq('workspace_id', workspaceId),
         client.from('notifications').select('*').eq('user_id', user!.id).order('created_at', { ascending: false }),
+        client.from('notification_preferences').select('email_enabled').eq('workspace_id', workspaceId).eq('user_id', user!.id).maybeSingle(),
         canViewAuditLog(membership.data.role)
           ? client.from('audit_log').select('*').eq('workspace_id', workspaceId).order('created_at', { ascending: false }).limit(100)
           : Promise.resolve({ data: [], error: null }),
       ])
-      const firstError = [workspace, profiles, folders, documents, events, meetings, tasks, links, notifications, audit].find((result) => result.error)?.error
+      const firstError = [workspace, profiles, folders, documents, events, meetings, tasks, links, notifications, preferences, audit].find((result) => result.error)?.error
       if (firstError) throw new Error(firstError.message)
       if (!active) return
       setError(null)
@@ -173,7 +174,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       setData({
         version: 3,
         members: remoteMembers,
-        settings: { name: workspace.data!.name, timezone: workspace.data!.timezone, emailNotifications: true },
+        settings: { name: workspace.data!.name, timezone: workspace.data!.timezone, emailNotifications: preferences.data?.email_enabled ?? true },
         folders: (folders.data ?? []).map((row) => ({ id: String(row.id), name: row.name, parentId: row.parent_id ? String(row.parent_id) : null, createdAt: mapStamp(row.created_at), updatedAt: mapStamp(row.updated_at), deletedAt: row.deleted_at })),
         documents: (documents.data ?? []).map((row) => ({ id: String(row.id), name: row.name, folderId: String(row.folder_id), ownerId: row.owner_id, updatedAt: mapStamp(row.updated_at), deletedAt: row.deleted_at, versions: (row.document_versions ?? []).map((version: { id: number; version_number: number; storage_path: string; size_bytes: number; mime_type: string; uploaded_by: string; created_at: string }) => ({ id: String(version.id), version: version.version_number, storagePath: version.storage_path, size: version.size_bytes, mimeType: version.mime_type, uploadedBy: version.uploaded_by, createdAt: version.created_at })) })),
         events: (events.data ?? []).map((row) => ({ id: String(row.id), title: row.title, description: row.description, startsAt: row.starts_at, endsAt: row.ends_at, location: row.location, attendeeIds: (row.event_attendees ?? []).map((attendee: { user_id: string }) => attendee.user_id), documentIds: row.document_ids?.map(String) ?? [], createdBy: row.created_by, updatedAt: mapStamp(row.updated_at), deletedAt: row.deleted_at })),
@@ -234,6 +235,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       })
       if (createError) throw new Error(createError.message)
       await refreshRef.current()
+      // Delivery is best-effort and never rolls back saved work. The trusted
+      // outbox decides recipients; the function only sends already-queued jobs.
+      void supabase.functions.invoke('dispatch-notifications', { body: { workspaceId } })
       return
     }
 
@@ -250,6 +254,15 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         next = { ...previous, tasks: [...previous.tasks, { ...base, title: input.title, assigneeId: input.assigneeId || currentUser.id, dueAt: input.dueDate ? fromTokyoInput(input.dueDate) : now, status: 'to_do', priority: input.priority || 'medium', notes: input.description || '', sourceMeetingId: input.sourceMeetingId ?? null, sourceEventId: input.sourceEventId ?? null, documentIds: input.documentIds ?? [] }] }
       } else if (input.kind === 'link') {
         next = { ...previous, links: [...previous.links, { ...base, title: input.title, url: input.url || '#', description: input.description || '', category: input.category || 'General' }] }
+      }
+      const recipientIds = input.kind === 'task'
+        ? [input.assigneeId || currentUser.id]
+        : input.kind === 'meeting'
+          ? [...new Set([currentUser.id, ...(input.attendeeIds ?? [])])]
+          : input.kind === 'event' ? (input.attendeeIds ?? []) : []
+      if (recipientIds.includes(currentUser.id)) {
+        const notificationTitle = input.kind === 'meeting' ? 'Meeting invitation' : input.kind === 'event' ? 'Added to event' : input.kind === 'task' ? 'Task assigned' : ''
+        if (notificationTitle) next = { ...next, notifications: [{ id: createId('notification'), title: notificationTitle, body: input.title, createdAt: now, readAt: null }, ...next.notifications] }
       }
       return addAudit(next, 'created', input.kind, input.title)
     })
@@ -472,9 +485,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     return { error: null }
   }, [addAudit, currentUser, data.members])
 
-  const clearAuditLog = useCallback(async (scope: 'activity' | 'members') => {
+  const clearAuditLog = useCallback(async (scope: 'activity' | 'members' | 'all') => {
     if (!canClearAuditLog(currentUser)) return { error: 'Only Rassul has permission to clear logs.', deleted: 0 }
-    let deleted = data.audit.filter((entry) => scope === 'members' ? entry.entityKind === 'member' : entry.entityKind !== 'member').length
+    let deleted = data.audit.filter((entry) => scope === 'all' || (scope === 'members' ? entry.entityKind === 'member' : entry.entityKind !== 'member')).length
     if (supabase && workspaceIdRef.current) {
       const { data: deletedRows, error: clearError } = await supabase.rpc('clear_workspace_log', {
         target_workspace_id: workspaceIdRef.current,
@@ -485,7 +498,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     }
     setData((previous) => ({
       ...previous,
-      audit: previous.audit.filter((entry) => scope === 'members' ? entry.entityKind !== 'member' : entry.entityKind === 'member'),
+      audit: scope === 'all' ? [] : previous.audit.filter((entry) => scope === 'members' ? entry.entityKind !== 'member' : entry.entityKind === 'member'),
     }))
     return { error: null, deleted }
   }, [currentUser, data.audit])

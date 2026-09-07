@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { Activity, Bell, CalendarDays, CheckSquare2, ChevronDown, FileText, Home, Link2, LogOut, Menu, Plus, Search, Settings, Trash2, UserCog, UsersRound, X } from 'lucide-react'
+import { Activity, Bell, CalendarDays, CheckSquare2, ChevronDown, FileText, Home, Link2, LogOut, Menu, Plus, Search, Settings, Trash2, UserCog, UsersRound, Wrench, X } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useWorkspace } from '../contexts/WorkspaceContext'
-import { canManageMembership, canViewAuditLog, memberRoleLabel } from '../lib/policies'
+import { canClearAuditLog, canManageMembership, canViewAuditLog, memberRoleLabel } from '../lib/policies'
 import type { EntityKind } from '../types'
 import { AddItemDialog } from './AddItemDialog'
 import { Avatar } from './Avatar'
@@ -93,7 +93,7 @@ export function AppShell() {
           </div>
           <div className="menu-anchor user-anchor">
             <button className="user-button" onClick={() => { setUserOpen((value) => !value); setAddMenuOpen(false); setNotificationsOpen(false) }} aria-expanded={userOpen} aria-haspopup="menu"><Avatar member={currentUser} /><span><strong>{currentUser.name}</strong><small>{memberRoleLabel(currentUser.role, currentUser.email)}</small></span><ChevronDown size={16} /></button>
-            {userOpen ? <div className="dropdown user-menu" role="menu"><button role="menuitem" onClick={() => { navigate('/settings'); setUserOpen(false) }}><Settings size={17} />Account settings</button><button role="menuitem" onClick={() => { navigate('/team'); setUserOpen(false) }}><UserCog size={17} />{canManageMembership(currentUser.role) ? 'Manage users' : 'Team directory'}</button>{canViewAuditLog(currentUser.role) ? <button role="menuitem" onClick={() => { navigate('/admin/audit'); setUserOpen(false) }}><Activity size={17} />Audit log</button> : null}<button role="menuitem" onClick={() => { navigate('/trash'); setUserOpen(false) }}><Trash2 size={17} />Trash</button><button role="menuitem" onClick={() => void signOut()}><LogOut size={17} />Sign out</button></div> : null}
+            {userOpen ? <div className="dropdown user-menu" role="menu">{canClearAuditLog(currentUser) ? <button role="menuitem" onClick={() => { navigate('/admin/site'); setUserOpen(false) }}><Wrench size={17} />Website management</button> : null}<button role="menuitem" onClick={() => { navigate('/settings'); setUserOpen(false) }}><Settings size={17} />Account settings</button><button role="menuitem" onClick={() => { navigate('/team'); setUserOpen(false) }}><UserCog size={17} />{canManageMembership(currentUser.role) ? 'Manage users' : 'Team directory'}</button>{canViewAuditLog(currentUser.role) ? <button role="menuitem" onClick={() => { navigate('/admin/audit'); setUserOpen(false) }}><Activity size={17} />Audit log</button> : null}<button role="menuitem" onClick={() => { navigate('/trash'); setUserOpen(false) }}><Trash2 size={17} />Trash</button><button role="menuitem" onClick={() => void signOut()}><LogOut size={17} />Sign out</button></div> : null}
           </div>
           <button className="icon-button icon-button--inverse mobile-menu-button" onClick={() => setMobileMenu((value) => !value)} aria-label="Open navigation">{mobileMenu ? <X /> : <Menu />}</button>
         </div>

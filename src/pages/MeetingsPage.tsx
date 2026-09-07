@@ -9,9 +9,9 @@ import type { EntityKind } from '../types'
 interface OutletActions { openCreate: (kind: EntityKind, sourceMeetingId?: string | null) => void }
 
 export default function MeetingsPage() {
-  const { data, updateMeetingNotes, archiveItem } = useWorkspace()
+  const { data, currentUser, updateMeetingNotes, archiveItem } = useWorkspace()
   const { openCreate } = useOutletContext<OutletActions>()
-  const meetings = useMemo(() => data.meetings.filter((meeting) => !meeting.deletedAt).sort((a, b) => a.startsAt.localeCompare(b.startsAt)), [data.meetings])
+  const meetings = useMemo(() => data.meetings.filter((meeting) => !meeting.deletedAt && meeting.attendeeIds.includes(currentUser.id)).sort((a, b) => a.startsAt.localeCompare(b.startsAt)), [data.meetings, currentUser.id])
   const [selectedId, setSelectedId] = useState(meetings[0]?.id)
   const selected = meetings.find((meeting) => meeting.id === selectedId) ?? meetings[0]
   const [agenda, setAgenda] = useState(selected?.agenda || '')

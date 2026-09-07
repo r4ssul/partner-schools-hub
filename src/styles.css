@@ -306,6 +306,9 @@ main { min-height: calc(100vh - 170px); }
 .month-day.is-today .month-day__number { color: #fff; background: var(--teal-700); font-weight: 700; }
 .calendar-event { width: 100%; min-width: 0; min-height: 23px; display: flex; align-items: center; gap: 5px; margin-top: 3px; padding: 0 5px; border: 0; border-left: 2px solid #3d8bd1; border-radius: 3px; background: #eff6fc; color: #33536d; text-align: left; transition: background var(--motion-fast) ease, transform var(--motion-fast) var(--ease-standard); }
 .calendar-event:hover { background: #e4f0fa; transform: translateX(1px); }
+.calendar-event--meeting { border-left-color: var(--teal-700); background: #edf8f7; color: var(--teal-800); }
+.calendar-event--meeting:hover { background: #e1f2f0; }
+.event-dot--meeting { background: var(--teal-700); }
 .calendar-event time { flex: 0 0 auto; font-size: 9px; }
 .calendar-event span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 9.5px; font-weight: 620; }
 .month-day > small { display: block; margin: 4px 0 0 4px; color: var(--muted); font-size: 9.5px; }
@@ -450,6 +453,20 @@ main { min-height: calc(100vh - 170px); }
 .settings-card header p { margin: 3px 0 0; color: var(--muted); font-size: 11.5px; }
 .settings-card .field { margin-bottom: 14px; }
 .settings-card--profile { grid-column: 1 / -1; }
+.developer-status-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; margin-bottom: 15px; }
+.developer-status-grid > div { min-height: 84px; display: flex; align-items: center; gap: 13px; padding: 17px; }
+.developer-status-grid svg { flex: 0 0 auto; color: var(--teal-700); }
+.developer-status-grid strong, .developer-status-grid small { display: block; }
+.developer-status-grid strong { font-size: 22px; line-height: 1; }
+.developer-status-grid small { margin-top: 5px; color: var(--muted); }
+.developer-controls, .developer-system { padding: 19px; margin-bottom: 15px; }
+.developer-link-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 11px; margin-top: 15px; }
+.developer-link-grid a { min-height: 76px; display: flex; align-items: center; gap: 12px; padding: 14px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); background: #fff; transition: border-color var(--motion-fast), background var(--motion-fast), transform var(--motion-fast) var(--ease-standard); }
+.developer-link-grid a:hover { border-color: var(--teal-700); background: var(--teal-50); transform: translateY(-1px); }
+.developer-link-grid a > svg { flex: 0 0 auto; color: var(--teal-700); }
+.developer-link-grid strong, .developer-link-grid small { display: block; }
+.developer-link-grid small { margin-top: 3px; color: var(--muted); font-size: 11px; line-height: 1.45; }
+.developer-system .settings-status { margin-top: 11px; }
 .profile-fields { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 0 15px; }
 .profile-fields .field:last-child { grid-column: 1 / -1; }
 .settings-form-alert { margin-bottom: 14px; }
@@ -745,6 +762,9 @@ main { min-height: calc(100vh - 170px); }
   .audit-list > div { grid-template-columns: 32px minmax(0,1fr); padding: 9px 0; }
   .audit-list time { grid-column: 2; }
   .settings-card { padding: 15px; }
+  .developer-status-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .developer-link-grid { grid-template-columns: 1fr; }
+  .developer-controls, .developer-system { padding: 15px; }
   .profile-fields { grid-template-columns: 1fr; }
   .profile-fields .field:last-child { grid-column: auto; }
   .button { min-height: 44px; }

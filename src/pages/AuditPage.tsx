@@ -7,11 +7,12 @@ import { canClearAuditLog, FORMER_MEMBER } from '../lib/policies'
 import { formatDateTime } from '../lib/date'
 
 type LogScope = 'activity' | 'members'
+type ClearScope = LogScope | 'all'
 
 export default function AuditPage() {
   const { data, currentUser, clearAuditLog } = useWorkspace()
   const [view, setView] = useState<LogScope>('activity')
-  const [confirmScope, setConfirmScope] = useState<LogScope | null>(null)
+  const [confirmScope, setConfirmScope] = useState<ClearScope | null>(null)
   const [confirmText, setConfirmText] = useState('')
   const [clearing, setClearing] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
@@ -32,7 +33,7 @@ export default function AuditPage() {
       setMessage(result.error)
       return
     }
-    const label = confirmScope === 'members' ? 'member' : 'activity'
+    const label = confirmScope === 'all' ? 'audit' : confirmScope === 'members' ? 'member' : 'activity'
     setMessage(`${result.deleted} ${label} log ${result.deleted === 1 ? 'entry' : 'entries'} cleared.`)
     closeConfirm()
   }
@@ -56,9 +57,10 @@ export default function AuditPage() {
         <div className="audit-control-grid">
           <div><span className="audit-control-icon"><Trash2 size={19} /></span><span><strong>Clear activity log</strong><small>Remove file, folder, event, meeting, task, and link history.</small></span><button className="button button--danger button--small" onClick={() => { setConfirmScope('activity'); setConfirmText('') }}>Clear activity</button></div>
           <div><span className="audit-control-icon"><Trash2 size={19} /></span><span><strong>Clear member log</strong><small>Remove invitation, role, and account-status history.</small></span><button className="button button--danger button--small" onClick={() => { setConfirmScope('members'); setConfirmText('') }}>Clear member log</button></div>
+          <div><span className="audit-control-icon"><Trash2 size={19} /></span><span><strong>Clear all logs</strong><small>Remove both workspace activity and member-access history.</small></span><button className="button button--danger button--small" onClick={() => { setConfirmScope('all'); setConfirmText('') }}>Clear all logs</button></div>
         </div>
       </section> : <p className="field-help">Only Rassul can clear activity and member logs.</p>}
-      <Modal open={Boolean(confirmScope)} title={`Clear ${confirmScope === 'members' ? 'member' : 'activity'} log?`} description="This permanently removes the selected history for everyone in the workspace." onClose={closeConfirm} size="sm">
+      <Modal open={Boolean(confirmScope)} title={`Clear ${confirmScope === 'all' ? 'all' : confirmScope === 'members' ? 'member' : 'activity'} log${confirmScope === 'all' ? 's' : ''}?`} description="This permanently removes the selected history for everyone in the workspace." onClose={closeConfirm} size="sm">
         <div className="confirm-dialog destructive-confirm"><p>Type <strong>CLEAR</strong> to confirm. This action cannot be undone.</p><label className="field"><span>Confirmation</span><input value={confirmText} onChange={(event) => setConfirmText(event.target.value.toUpperCase())} autoComplete="off" autoFocus /></label><div className="modal-footer"><button className="button button--secondary" onClick={closeConfirm} disabled={clearing}>Cancel</button><button className="button button--danger" onClick={() => void clearLog()} disabled={confirmText !== 'CLEAR' || clearing}>{clearing ? <><LoaderCircle className="spin" size={17} /> Clearing</> : <><Trash2 size={17} /> Clear permanently</>}</button></div></div>
       </Modal>
     </div>

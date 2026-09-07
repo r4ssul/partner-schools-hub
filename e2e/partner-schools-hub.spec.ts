@@ -35,6 +35,13 @@ async function uploadFixture(page: import('@playwright/test').Page) {
   await expect(page.getByText('sample.txt uploaded successfully.')).toBeVisible()
 }
 
+async function openNewItem(page: import('@playwright/test').Page, menuName: string, dialogChoice: string) {
+  await page.getByRole('button', { name: 'Add new' }).click()
+  const menuItem = page.getByRole('menuitem', { name: menuName })
+  if (await menuItem.isVisible().catch(() => false)) await menuItem.click()
+  else await page.getByRole('button', { name: dialogChoice, exact: true }).click()
+}
+
 test.beforeEach(async ({ page }) => {
   await resetWorkspace(page)
 })
@@ -89,6 +96,48 @@ test('missing activation session cannot show a verified setup form', async ({ pa
     await expect(page.getByLabel('New password')).toHaveCount(0)
     await expect(page.getByRole('link', { name: 'Back to sign in' })).toBeVisible()
   }
+})
+
+test('shows shared events and attended meetings together on the calendar', async ({ page }) => {
+  await openNewItem(page, 'New event', 'Event')
+  await page.getByLabel('Title').fill('Shared calendar event')
+  await expect(page.getByText('The event appears to everyone; selected attendees receive an assignment notification.')).toBeVisible()
+  await page.getByRole('button', { name: 'Create event' }).click()
+
+  await openNewItem(page, 'New meeting', 'Meeting')
+  await page.getByLabel('Title').fill('Attendee calendar meeting')
+  await expect(page.getByText('Only selected attendees can see this meeting. You are always included as its creator.')).toBeVisible()
+  await page.getByRole('button', { name: 'Create meeting' }).click()
+
+  await (await mainNavLink(page, 'Calendar')).click()
+  await expect(page.getByRole('button', { name: 'event: Shared calendar event' })).toBeVisible()
+  const meeting = page.getByRole('button', { name: 'meeting: Attendee calendar meeting' })
+  await expect(meeting).toBeVisible()
+  await meeting.click()
+  await expect(page.getByText('Private meeting · visible only to attendees')).toBeVisible()
+  await page.getByRole('button', { name: 'Close dialog' }).click()
+
+  await page.getByRole('button', { name: /unread notifications/ }).click()
+  await expect(page.getByText('Added to event')).toBeVisible()
+  await expect(page.getByText('Meeting invitation')).toBeVisible()
+})
+
+test('gives the developer an in-app management centre and clear-all log control', async ({ page }) => {
+  await page.evaluate((storageKey) => {
+    const data = JSON.parse(localStorage.getItem(storageKey) || '{}')
+    data.members = data.members.map((member: { email: string; canClearLogs: boolean }) => member.email === 'mcanbaloglu@enishi.ac.jp' ? { ...member, canClearLogs: true } : member)
+    localStorage.setItem(storageKey, JSON.stringify(data))
+  }, STORAGE_KEY)
+  await page.reload()
+  await page.goto('/admin/site')
+  await expect(page.getByRole('heading', { name: 'Website management' })).toBeVisible()
+  for (const name of ['Workspace details', 'Members and access', 'Audit and logs', 'Deleted content']) await expect(page.getByRole('link', { name: new RegExp(name) })).toBeVisible()
+  await page.getByRole('link', { name: /Audit and logs/ }).click()
+  await page.getByRole('button', { name: 'Clear all logs' }).click()
+  await expect(page.getByRole('heading', { name: 'Clear all logs?' })).toBeVisible()
+  await page.getByLabel('Confirmation').fill('CLEAR')
+  await page.getByRole('button', { name: 'Clear permanently' }).click()
+  await expect(page.getByRole('status')).toContainText('audit log')
 })
 
 test('provides discoverable search, functional dashboard tabs, and keyboard-safe creation', async ({ page }) => {

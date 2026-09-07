@@ -9,7 +9,8 @@ import { Panel } from '../components/Panel'
 import { StatusSelect } from '../components/StatusSelect'
 import { useWorkspace } from '../contexts/WorkspaceContext'
 import { formatDate, formatTime } from '../lib/date'
-import type { EntityKind, HubEvent, Meeting, Task } from '../types'
+import { buildCalendarSchedule, type CalendarScheduleItem } from '../lib/calendar'
+import type { EntityKind, Meeting, Task } from '../types'
 
 interface OutletActions { openCreate: (kind: EntityKind) => void }
 
@@ -19,14 +20,14 @@ function MemberAvatar({ id }: { id: string | null }) {
   return <Avatar member={member} size="sm" />
 }
 
-function dateLabel(event: HubEvent) {
+function dateLabel(event: CalendarScheduleItem) {
   const date = parseISO(event.startsAt)
   if (isToday(date)) return 'Today'
   if (isTomorrow(date)) return 'Tomorrow'
   return formatDate(event.startsAt, { weekday: 'short', month: 'short', day: 'numeric' })
 }
 
-function ComingUp({ events, tasks }: { events: HubEvent[]; tasks: Task[] }) {
+function ComingUp({ events, tasks }: { events: CalendarScheduleItem[]; tasks: Task[] }) {
   const { updateTaskStatus } = useWorkspace()
   const [view, setView] = useState<'agenda' | 'tasks'>('agenda')
   const openTasks = tasks.filter((task) => task.status !== 'done')
@@ -37,7 +38,7 @@ function ComingUp({ events, tasks }: { events: HubEvent[]; tasks: Task[] }) {
         {view === 'agenda' ? (events.length ? events.slice(0, 4).map((event, index) => (
           <div className="agenda-row" key={event.id}>
             {(index === 0 || !isSameDay(parseISO(events[index - 1].startsAt), parseISO(event.startsAt))) ? <div className="agenda-date">{dateLabel(event)} · {formatDate(event.startsAt, { month: 'short', day: 'numeric' })}</div> : null}
-            <div className="agenda-row__content"><span className="event-dot" /><time>{formatTime(event.startsAt)}<small>– {formatTime(event.endsAt)}</small></time><span className="event-rule" /><div><strong>{event.title}</strong><small>{event.location}</small></div><MemberAvatar id={event.attendeeIds.at(-1) || event.createdBy} /></div>
+            <div className="agenda-row__content"><span className={event.kind === 'meeting' ? 'event-dot event-dot--meeting' : 'event-dot'} /><time>{formatTime(event.startsAt)}<small>– {formatTime(event.endsAt)}</small></time><span className="event-rule" /><div><strong>{event.title}</strong><small>{event.kind === 'meeting' ? 'Meeting · ' : ''}{event.location}</small></div><MemberAvatar id={event.attendeeIds.at(-1) || event.createdBy} /></div>
           </div>
         )) : <div className="dashboard-empty"><CalendarDays size={28} /><strong>No events yet</strong><span>Schedule the first shared event.</span></div>) : (openTasks.length ? <div className="dashboard-task-list">{openTasks.slice(0, 5).map((task) => <div className="dashboard-task-row" key={task.id}><button className={`task-check task-check--${task.status}`} onClick={() => void updateTaskStatus(task.id, 'done')} aria-label={`Complete ${task.title}`} /><span><strong>{task.title}</strong><small>Due {formatDate(task.dueAt, { month: 'short', day: 'numeric' })}</small></span><MemberAvatar id={task.assigneeId} /></div>)}</div> : <div className="dashboard-empty"><CheckSquare2 size={28} /><strong>No open tasks</strong><span>New assignments will appear here.</span></div>)}
       </div>
@@ -68,11 +69,11 @@ function QuickLinksPanel() {
   )
 }
 
-function TeamCalendar({ events }: { events: HubEvent[] }) {
+function TeamCalendar({ events }: { events: CalendarScheduleItem[] }) {
   return (
     <Panel title="Team calendar" icon={CalendarDays} className="dashboard-calendar">
       <div className="mini-calendar-heading"><span className="date-chip">Today</span><strong>{formatDate(events[0]?.startsAt ?? new Date().toISOString(), { month: 'short', day: 'numeric' })}</strong></div>
-      <div className="mini-calendar-list">{events.length ? events.slice(0, 5).map((event) => <div key={event.id}><time><strong>{formatDate(event.startsAt, { weekday: 'short' }).slice(0, 3)}</strong><span>{formatDate(event.startsAt, { day: 'numeric' })}</span></time><span className="event-dot" /><small>{formatTime(event.startsAt)}</small><strong>{event.title}</strong></div>) : <div className="dashboard-empty"><CalendarDays size={25} /><strong>Calendar is clear</strong><span>New events will appear here.</span></div>}</div>
+      <div className="mini-calendar-list">{events.length ? events.slice(0, 5).map((event) => <div key={`${event.kind}-${event.id}`}><time><strong>{formatDate(event.startsAt, { weekday: 'short' }).slice(0, 3)}</strong><span>{formatDate(event.startsAt, { day: 'numeric' })}</span></time><span className={event.kind === 'meeting' ? 'event-dot event-dot--meeting' : 'event-dot'} /><small>{formatTime(event.startsAt)}</small><strong>{event.title}</strong></div>) : <div className="dashboard-empty"><CalendarDays size={25} /><strong>Calendar is clear</strong><span>New events and meetings will appear here.</span></div>}</div>
       <Link className="panel-link" to="/calendar">Open full calendar <ChevronRight size={16} /></Link>
     </Panel>
   )
@@ -108,8 +109,8 @@ function SecureAccess() {
 export default function DashboardPage() {
   const { data, currentUser } = useWorkspace()
   const { openCreate } = useOutletContext<OutletActions>()
-  const events = data.events.filter((event) => !event.deletedAt).sort((a, b) => a.startsAt.localeCompare(b.startsAt))
-  const meetings = data.meetings.filter((meeting) => !meeting.deletedAt).sort((a, b) => a.startsAt.localeCompare(b.startsAt))
+  const events = buildCalendarSchedule(data.events, data.meetings, currentUser.id)
+  const meetings = data.meetings.filter((meeting) => !meeting.deletedAt && meeting.attendeeIds.includes(currentUser.id)).sort((a, b) => a.startsAt.localeCompare(b.startsAt))
   const tasks = data.tasks.filter((task) => !task.deletedAt).sort((a, b) => a.dueAt.localeCompare(b.dueAt))
   return (
     <div className="page dashboard-page">
