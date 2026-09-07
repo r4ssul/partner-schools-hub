@@ -6,9 +6,13 @@ const PREVIEW_PASSWORD = 'partner-schools-e2e-only'
 
 async function mainNavLink(page: import('@playwright/test').Page, name: string) {
   const mobileNav = page.getByRole('navigation', { name: 'Mobile navigation' })
-  return (page.viewportSize()?.width ?? 1000) <= 640
-    ? mobileNav.getByRole('link', { name, exact: true })
-    : page.getByRole('navigation', { name: 'Primary navigation' }).getByRole('link', { name, exact: true })
+  if ((page.viewportSize()?.width ?? 1000) <= 640) {
+    const directLink = mobileNav.getByRole('link', { name, exact: true })
+    if (await directLink.count()) return directLink
+    await mobileNav.getByRole('button', { name: 'More navigation' }).click()
+    return page.getByRole('dialog', { name: 'More' }).getByRole('link', { name: new RegExp(`^${name}`) })
+  }
+  return page.getByRole('navigation', { name: 'Primary navigation' }).getByRole('link', { name, exact: true })
 }
 
 async function resetWorkspace(page: import('@playwright/test').Page) {
@@ -410,9 +414,53 @@ test('moves newly created content to trash and restores it', async ({ page }) =>
 
 test('mobile layout has no horizontal overflow', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'mobile', 'Mobile-only assertion')
-  await expect(page.getByRole('navigation', { name: 'Mobile navigation' })).toBeVisible()
+  const navigation = page.getByRole('navigation', { name: 'Mobile navigation' })
+  await expect(navigation).toBeVisible()
+  await expect(navigation.locator(':scope > *')).toHaveCount(6)
   const dimensions = await page.evaluate(() => ({ client: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }))
   expect(dimensions.scroll).toBeLessThanOrEqual(dimensions.client)
+})
+
+test('mobile navigation keeps primary work one tap away and groups secondary tools', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'mobile', 'Mobile-only assertion')
+  const navigation = page.getByRole('navigation', { name: 'Mobile navigation' })
+  for (const name of ['Home', 'Files', 'Calendar', 'Tasks', 'Chat']) {
+    await expect(navigation.getByRole('link', { name, exact: true })).toBeVisible()
+  }
+  await navigation.getByRole('button', { name: 'More navigation' }).click()
+  const dialog = page.getByRole('dialog', { name: 'More' })
+  await expect(dialog).toBeVisible()
+  for (const name of ['Meetings', 'Quick links', 'Team access', 'Settings', 'Audit log', 'Trash']) {
+    await expect(dialog.getByRole('link', { name: new RegExp(`^${name}`) })).toBeVisible()
+  }
+  await dialog.getByRole('link', { name: /^Meetings/ }).click()
+  await expect(page.getByRole('heading', { name: 'Meetings', level: 1 })).toBeVisible()
+})
+
+test('mobile add-new chooser exposes every creation type without horizontal scrolling', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'mobile', 'Mobile-only assertion')
+  await page.getByRole('button', { name: 'Add new' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Add new' })
+  const choices = dialog.locator('.creation-types')
+  for (const name of ['Upload file', 'New folder', 'Event', 'Meeting', 'Task', 'Quick link']) {
+    await expect(choices.getByRole('button', { name: new RegExp(`^${name}`) })).toBeVisible()
+  }
+  const dimensions = await choices.evaluate((element) => ({ client: element.clientWidth, scroll: element.scrollWidth }))
+  expect(dimensions.scroll).toBeLessThanOrEqual(dimensions.client)
+})
+
+test('mobile search and notifications stay discoverable and inside the viewport', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'mobile', 'Mobile-only assertion')
+  await page.getByRole('button', { name: 'Search Partner Schools Hub' }).click()
+  await expect(page.getByRole('dialog', { name: 'Search Partner Schools Hub' })).toBeVisible()
+  await page.getByRole('button', { name: 'Close search' }).click()
+  await page.getByRole('button', { name: /unread notifications/ }).click()
+  const menu = page.locator('.notification-menu')
+  await expect(menu).toBeVisible()
+  const bounds = await menu.boundingBox()
+  expect(bounds).not.toBeNull()
+  expect(bounds!.x).toBeGreaterThanOrEqual(0)
+  expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(page.viewportSize()!.width)
 })
 
 test('super admin can manage settings but cannot clear either log', async ({ page }) => {
