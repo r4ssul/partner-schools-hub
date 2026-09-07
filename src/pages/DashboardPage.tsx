@@ -36,7 +36,7 @@ function ComingUp({ events, tasks }: { events: CalendarScheduleItem[]; tasks: Ta
       <div className="subtabs" role="tablist" aria-label="Coming up view"><button role="tab" aria-selected={view === 'agenda'} className={view === 'agenda' ? 'is-active' : ''} onClick={() => setView('agenda')}>Agenda</button><button role="tab" aria-selected={view === 'tasks'} className={view === 'tasks' ? 'is-active' : ''} onClick={() => setView('tasks')}>Tasks ({openTasks.length})</button></div>
       <div className="agenda-list">
         {view === 'agenda' ? (events.length ? events.slice(0, 4).map((event, index) => (
-          <div className="agenda-row" key={event.id}>
+          <div className="agenda-row" key={`${event.kind}-${event.id}`}>
             {(index === 0 || !isSameDay(parseISO(events[index - 1].startsAt), parseISO(event.startsAt))) ? <div className="agenda-date">{dateLabel(event)} · {formatDate(event.startsAt, { month: 'short', day: 'numeric' })}</div> : null}
             <div className="agenda-row__content"><span className={event.kind === 'meeting' ? 'event-dot event-dot--meeting' : 'event-dot'} /><time>{formatTime(event.startsAt)}<small>– {formatTime(event.endsAt)}</small></time><span className="event-rule" /><div><strong>{event.title}</strong><small>{event.kind === 'meeting' ? 'Meeting · ' : ''}{event.location}</small></div><MemberAvatar id={event.attendeeIds.at(-1) || event.createdBy} /></div>
           </div>
