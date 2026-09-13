@@ -12,12 +12,12 @@ export type CalendarScheduleItem = {
   createdBy: string | null
 }
 
-export function buildCalendarSchedule(events: HubEvent[], meetings: Meeting[], userId: string): CalendarScheduleItem[] {
+export function buildCalendarSchedule(events: HubEvent[], meetings: Meeting[]): CalendarScheduleItem[] {
   const sharedEvents = events
     .filter((event) => !event.deletedAt)
     .map((event) => ({ ...event, kind: 'event' as const }))
-  const privateMeetings = meetings
-    .filter((meeting) => !meeting.deletedAt && meeting.attendeeIds.includes(userId))
+  const sharedMeetings = meetings
+    .filter((meeting) => !meeting.deletedAt)
     .map((meeting) => ({
       id: meeting.id,
       kind: 'meeting' as const,
@@ -29,5 +29,5 @@ export function buildCalendarSchedule(events: HubEvent[], meetings: Meeting[], u
       attendeeIds: meeting.attendeeIds,
       createdBy: meeting.createdBy,
     }))
-  return [...sharedEvents, ...privateMeetings].sort((a, b) => a.startsAt.localeCompare(b.startsAt))
+  return [...sharedEvents, ...sharedMeetings].sort((a, b) => a.startsAt.localeCompare(b.startsAt))
 }

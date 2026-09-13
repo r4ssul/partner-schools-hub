@@ -78,11 +78,11 @@ test('protects the portal with login and rejects invalid credentials', async ({ 
   await expect(page.getByRole('heading', { name: 'Welcome, Jan' })).toBeVisible()
 })
 
-test('renders the approved home hierarchy and empty production states', async ({ page }) => {
-  for (const title of ['Coming up', 'Files & knowledge', 'Quick links', 'Team calendar', 'Meetings', 'My tasks', 'Secure access']) {
+test('renders the organized home hierarchy and empty production states', async ({ page }) => {
+  for (const title of ['Schedule & meetings', 'Coming up', 'Meeting workspace', 'Files & knowledge', 'Quick links', 'My tasks', 'Secure access']) {
     await expect(page.getByRole('heading', { name: title })).toBeVisible()
   }
-  for (const emptyCopy of ['No events yet', 'No files yet', 'No links yet', 'Calendar is clear', 'No meetings yet', 'No tasks yet']) {
+  for (const emptyCopy of ['No schedule yet', 'No meetings yet', 'No files yet', 'No links yet', 'No tasks yet']) {
     await expect(page.getByText(emptyCopy, { exact: true })).toBeVisible()
   }
   await (await mainNavLink(page, 'Tasks')).click()
@@ -102,7 +102,7 @@ test('missing activation session cannot show a verified setup form', async ({ pa
   }
 })
 
-test('shows shared events and attended meetings together on the calendar', async ({ page }) => {
+test('shows shared events and meetings together on the calendar', async ({ page }) => {
   await openNewItem(page, 'New event', 'Event')
   await page.getByLabel('Title').fill('Shared calendar event')
   await expect(page.getByText('The event appears to everyone; selected attendees receive an assignment notification.')).toBeVisible()
@@ -110,7 +110,7 @@ test('shows shared events and attended meetings together on the calendar', async
 
   await openNewItem(page, 'New meeting', 'Meeting')
   await page.getByLabel('Title').fill('Attendee calendar meeting')
-  await expect(page.getByText('Only selected attendees can see this meeting. You are always included as its creator.')).toBeVisible()
+  await expect(page.getByText('The meeting appears to everyone; selected attendees receive an assignment notification. You are always included as its creator.')).toBeVisible()
   await page.getByRole('button', { name: 'Create meeting' }).click()
 
   await (await mainNavLink(page, 'Calendar')).click()
@@ -118,12 +118,45 @@ test('shows shared events and attended meetings together on the calendar', async
   const meeting = page.getByRole('button', { name: 'meeting: Attendee calendar meeting' })
   await expect(meeting).toBeVisible()
   await meeting.click()
-  await expect(page.getByText('Private meeting · visible only to attendees')).toBeVisible()
+  await expect(page.getByText('Shared meeting · visible to everyone')).toBeVisible()
   await page.getByRole('button', { name: 'Close dialog' }).click()
 
   await page.getByRole('button', { name: /unread notifications/ }).click()
   await expect(page.getByText('Added to event')).toBeVisible()
   await expect(page.getByText('Meeting invitation')).toBeVisible()
+})
+
+test('shows a workspace meeting even when the viewer is not an attendee', async ({ page }) => {
+  await page.evaluate((storageKey) => {
+    const workspace = JSON.parse(localStorage.getItem(storageKey) || '{}')
+    const startsAt = new Date(Date.now() + 24 * 60 * 60 * 1000)
+    startsAt.setHours(13, 0, 0, 0)
+    const endsAt = new Date(startsAt.getTime() + 60 * 60 * 1000)
+    workspace.meetings.push({
+      id: 'workspace-wide-meeting',
+      title: 'Whole workspace planning',
+      agenda: 'Shared planning agenda',
+      minutes: '',
+      startsAt: startsAt.toISOString(),
+      endsAt: endsAt.toISOString(),
+      location: 'Conference room',
+      attendeeIds: ['rassul-abzhapparov'],
+      documentIds: [],
+      status: 'upcoming',
+      createdBy: 'rassul-abzhapparov',
+      updatedAt: new Date().toISOString(),
+      deletedAt: null,
+    })
+    localStorage.setItem(storageKey, JSON.stringify(workspace))
+  }, STORAGE_KEY)
+  await page.reload()
+
+  await expect(page.getByText('Whole workspace planning', { exact: true }).first()).toBeVisible()
+  await (await mainNavLink(page, 'Calendar')).click()
+  await expect(page.getByRole('button', { name: 'meeting: Whole workspace planning' })).toBeVisible()
+  await (await mainNavLink(page, 'Meetings')).click()
+  await expect(page.getByRole('heading', { name: 'Meetings', exact: true })).toBeVisible()
+  await expect(page.locator('.master-row').filter({ hasText: 'Whole workspace planning' })).toBeVisible()
 })
 
 test('gives the developer an in-app management centre and clear-all log control', async ({ page }) => {
@@ -154,14 +187,12 @@ test('provides discoverable search, functional dashboard tabs, and keyboard-safe
   await expect(page.getByLabel('Search all workspace content')).toBeFocused()
   await page.keyboard.press('Escape')
 
-  await page.getByRole('tab', { name: 'Tasks (0)' }).click()
-  await expect(page.getByText('No open tasks', { exact: true })).toBeVisible()
-  if ((page.viewportSize()?.width ?? 1000) > 640) {
-    await page.getByRole('tab', { name: 'Minutes' }).click()
-    await expect(page.getByText('No minutes yet', { exact: true })).toBeVisible()
-    await page.getByRole('tab', { name: 'Action items' }).click()
-    await expect(page.getByText('No action items', { exact: true })).toBeVisible()
-  }
+  await page.getByRole('tab', { name: 'Minutes' }).click()
+  await expect(page.getByText('No minutes yet', { exact: true })).toBeVisible()
+  await page.getByRole('tab', { name: 'Actions' }).click()
+  await expect(page.getByText('No action items', { exact: true })).toBeVisible()
+  await page.getByRole('tab', { name: 'Agenda' }).click()
+  await expect(page.getByText('No meetings yet', { exact: true })).toBeVisible()
 
   const addButton = page.getByRole('button', { name: 'Add new' })
   await addButton.click()

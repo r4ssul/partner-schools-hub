@@ -27,22 +27,39 @@ function dateLabel(event: CalendarScheduleItem) {
   return formatDate(event.startsAt, { weekday: 'short', month: 'short', day: 'numeric' })
 }
 
-function ComingUp({ events, tasks }: { events: CalendarScheduleItem[]; tasks: Task[] }) {
-  const { updateTaskStatus } = useWorkspace()
-  const [view, setView] = useState<'agenda' | 'tasks'>('agenda')
-  const openTasks = tasks.filter((task) => task.status !== 'done')
+function SchedulePanel({ events, meetings, tasks, openCreate }: { events: CalendarScheduleItem[]; meetings: Meeting[]; tasks: Task[]; openCreate: (kind: EntityKind) => void }) {
+  const [meetingView, setMeetingView] = useState<'agenda' | 'minutes' | 'actions'>('agenda')
+  const meetingMinutes = meetings.filter((meeting) => meeting.minutes.trim())
+  const actionItems = tasks.filter((task) => task.sourceMeetingId && task.status !== 'done')
+  const sharedEventCount = events.filter((event) => event.kind === 'event').length
+  const meetingCount = events.filter((event) => event.kind === 'meeting').length
+
   return (
-    <Panel title="Coming up" icon={CalendarDays} className="dashboard-coming">
-      <div className="subtabs" role="tablist" aria-label="Coming up view"><button role="tab" aria-selected={view === 'agenda'} className={view === 'agenda' ? 'is-active' : ''} onClick={() => setView('agenda')}>Agenda</button><button role="tab" aria-selected={view === 'tasks'} className={view === 'tasks' ? 'is-active' : ''} onClick={() => setView('tasks')}>Tasks ({openTasks.length})</button></div>
-      <div className="agenda-list">
-        {view === 'agenda' ? (events.length ? events.slice(0, 4).map((event, index) => (
-          <div className="agenda-row" key={`${event.kind}-${event.id}`}>
-            {(index === 0 || !isSameDay(parseISO(events[index - 1].startsAt), parseISO(event.startsAt))) ? <div className="agenda-date">{dateLabel(event)} · {formatDate(event.startsAt, { month: 'short', day: 'numeric' })}</div> : null}
-            <div className="agenda-row__content"><span className={event.kind === 'meeting' ? 'event-dot event-dot--meeting' : 'event-dot'} /><time>{formatTime(event.startsAt)}<small>– {formatTime(event.endsAt)}</small></time><span className="event-rule" /><div><strong>{event.title}</strong><small>{event.kind === 'meeting' ? 'Meeting · ' : ''}{event.location}</small></div><MemberAvatar id={event.attendeeIds.at(-1) || event.createdBy} /></div>
-          </div>
-        )) : <div className="dashboard-empty"><CalendarDays size={28} /><strong>No events yet</strong><span>Schedule the first shared event.</span></div>) : (openTasks.length ? <div className="dashboard-task-list">{openTasks.slice(0, 5).map((task) => <div className="dashboard-task-row" key={task.id}><button className={`task-check task-check--${task.status}`} onClick={() => void updateTaskStatus(task.id, 'done')} aria-label={`Complete ${task.title}`} /><span><strong>{task.title}</strong><small>Due {formatDate(task.dueAt, { month: 'short', day: 'numeric' })}</small></span><MemberAvatar id={task.assigneeId} /></div>)}</div> : <div className="dashboard-empty"><CheckSquare2 size={28} /><strong>No open tasks</strong><span>New assignments will appear here.</span></div>)}
+    <Panel title="Schedule & meetings" icon={CalendarDays} className="dashboard-schedule" action={<><button className="button button--secondary button--small" onClick={() => openCreate('event')}><Plus size={16} /><span>New event</span></button><button className="button button--secondary button--small" onClick={() => openCreate('meeting')}><UsersRound size={16} /><span>New meeting</span></button></>}>
+      <div className="schedule-summary" aria-label="Schedule summary">
+        <span className="date-chip">Upcoming</span>
+        <div className="schedule-legend"><span><i className="event-dot" /> {sharedEventCount} team {sharedEventCount === 1 ? 'event' : 'events'}</span><span><i className="event-dot event-dot--meeting" /> {meetingCount} team {meetingCount === 1 ? 'meeting' : 'meetings'}</span></div>
       </div>
-      <Link className="panel-link" to={view === 'agenda' ? '/calendar' : '/tasks'}>{view === 'agenda' ? 'Open full calendar' : 'View all tasks'} <ChevronRight size={16} /></Link>
+      <div className="schedule-columns">
+        <section className="schedule-column schedule-column--agenda" aria-labelledby="team-schedule-heading">
+          <div className="schedule-section-heading"><div><h3 id="team-schedule-heading">Coming up</h3><p>All team events and meetings shared with you</p></div><Link to="/calendar">Calendar <ChevronRight size={15} /></Link></div>
+          <div className="agenda-list">
+            {events.length ? events.slice(0, 5).map((event, index) => (
+              <div className="agenda-row" key={`${event.kind}-${event.id}`}>
+                {(index === 0 || !isSameDay(parseISO(events[index - 1].startsAt), parseISO(event.startsAt))) ? <div className="agenda-date">{dateLabel(event)} · {formatDate(event.startsAt, { month: 'short', day: 'numeric' })}</div> : null}
+                <Link className="agenda-row__content" to={event.kind === 'meeting' ? '/meetings' : '/calendar'} aria-label={`${event.kind}: ${event.title}`}><span className={event.kind === 'meeting' ? 'event-dot event-dot--meeting' : 'event-dot'} /><time>{formatTime(event.startsAt)}<small>– {formatTime(event.endsAt)}</small></time><span className={event.kind === 'meeting' ? 'event-rule event-rule--meeting' : 'event-rule'} /><div><strong>{event.title}</strong><small>{event.kind === 'meeting' ? 'Team meeting' : 'Team event'}{event.location ? ` · ${event.location}` : ''}</small></div><MemberAvatar id={event.attendeeIds.at(-1) || event.createdBy} /></Link>
+              </div>
+            )) : <div className="dashboard-empty schedule-empty"><CalendarDays size={28} /><strong>No schedule yet</strong><span>New team events and meetings will appear here.</span></div>}
+          </div>
+          <Link className="panel-link" to="/calendar">Open full calendar <ChevronRight size={16} /></Link>
+        </section>
+        <section className="schedule-column schedule-column--meetings" aria-labelledby="meeting-workspace-heading">
+          <div className="schedule-section-heading"><div><h3 id="meeting-workspace-heading">Meeting workspace</h3><p>Agendas, minutes, and follow-ups for everyone</p></div><span className="meeting-privacy"><UsersRound size={13} /> Shared with team</span></div>
+          <div className="subtabs" role="tablist" aria-label="Meeting workspace view"><button role="tab" aria-selected={meetingView === 'agenda'} className={meetingView === 'agenda' ? 'is-active' : ''} onClick={() => setMeetingView('agenda')}>Agenda</button><button role="tab" aria-selected={meetingView === 'minutes'} className={meetingView === 'minutes' ? 'is-active' : ''} onClick={() => setMeetingView('minutes')}>Minutes</button><button role="tab" aria-selected={meetingView === 'actions'} className={meetingView === 'actions' ? 'is-active' : ''} onClick={() => setMeetingView('actions')}>Actions</button></div>
+          <div className="meeting-list" role="tabpanel">{meetingView === 'agenda' ? (meetings.length ? meetings.slice(0, 3).map((meeting) => <Link to="/meetings" key={meeting.id}><div><strong>{meeting.title}</strong><span><Clock3 size={14} /> {formatDate(meeting.startsAt, { month: 'short', day: 'numeric' })}, {formatTime(meeting.startsAt)}</span></div><span className={`meeting-state meeting-state--${meeting.status}`}>{meeting.status.replace('_', ' ')}</span><ChevronRight size={17} /></Link>) : <div className="dashboard-empty schedule-empty"><UsersRound size={26} /><strong>No meetings yet</strong><span>Create an agenda when you are ready.</span></div>) : meetingView === 'minutes' ? (meetingMinutes.length ? meetingMinutes.slice(0, 3).map((meeting) => <Link className="meeting-list__summary" to="/meetings" key={meeting.id}><div><strong>{meeting.title}</strong><span>{meeting.minutes}</span></div><ChevronRight size={17} /></Link>) : <div className="dashboard-empty schedule-empty"><Clock3 size={26} /><strong>No minutes yet</strong><span>Saved meeting notes will appear here.</span></div>) : (actionItems.length ? actionItems.slice(0, 3).map((task) => <Link className="meeting-list__summary" to="/tasks" key={task.id}><div><strong>{task.title}</strong><span>Due {formatDate(task.dueAt, { month: 'short', day: 'numeric' })}</span></div><ChevronRight size={17} /></Link>) : <div className="dashboard-empty schedule-empty"><CheckSquare2 size={26} /><strong>No action items</strong><span>Meeting follow-ups will appear here.</span></div>)}</div>
+          <Link className="panel-link" to={meetingView === 'actions' ? '/tasks' : '/meetings'}>{meetingView === 'actions' ? 'View all tasks' : 'View all meetings'} <ChevronRight size={16} /></Link>
+        </section>
+      </div>
     </Panel>
   )
 }
@@ -69,29 +86,6 @@ function QuickLinksPanel() {
   )
 }
 
-function TeamCalendar({ events }: { events: CalendarScheduleItem[] }) {
-  return (
-    <Panel title="Team calendar" icon={CalendarDays} className="dashboard-calendar">
-      <div className="mini-calendar-heading"><span className="date-chip">Today</span><strong>{formatDate(events[0]?.startsAt ?? new Date().toISOString(), { month: 'short', day: 'numeric' })}</strong></div>
-      <div className="mini-calendar-list">{events.length ? events.slice(0, 5).map((event) => <div key={`${event.kind}-${event.id}`}><time><strong>{formatDate(event.startsAt, { weekday: 'short' }).slice(0, 3)}</strong><span>{formatDate(event.startsAt, { day: 'numeric' })}</span></time><span className={event.kind === 'meeting' ? 'event-dot event-dot--meeting' : 'event-dot'} /><small>{formatTime(event.startsAt)}</small><strong>{event.title}</strong></div>) : <div className="dashboard-empty"><CalendarDays size={25} /><strong>Calendar is clear</strong><span>New events and meetings will appear here.</span></div>}</div>
-      <Link className="panel-link" to="/calendar">Open full calendar <ChevronRight size={16} /></Link>
-    </Panel>
-  )
-}
-
-function MeetingsPanel({ meetings, tasks, openCreate }: { meetings: Meeting[]; tasks: Task[]; openCreate: (kind: EntityKind) => void }) {
-  const [view, setView] = useState<'agenda' | 'minutes' | 'actions'>('agenda')
-  const meetingMinutes = meetings.filter((meeting) => meeting.minutes.trim())
-  const actionItems = tasks.filter((task) => task.sourceMeetingId && task.status !== 'done')
-  return (
-    <Panel title="Meetings" icon={UsersRound} className="dashboard-meetings" action={<button className="button button--secondary button--small" onClick={() => openCreate('meeting')}><Plus size={16} /> New meeting</button>}>
-      <div className="subtabs" role="tablist" aria-label="Meeting overview"><button role="tab" aria-selected={view === 'agenda'} className={view === 'agenda' ? 'is-active' : ''} onClick={() => setView('agenda')}>Agenda</button><button role="tab" aria-selected={view === 'minutes'} className={view === 'minutes' ? 'is-active' : ''} onClick={() => setView('minutes')}>Minutes</button><button role="tab" aria-selected={view === 'actions'} className={view === 'actions' ? 'is-active' : ''} onClick={() => setView('actions')}>Action items</button></div>
-      <div className="meeting-list">{view === 'agenda' ? (meetings.length ? meetings.slice(0, 3).map((meeting) => <Link to="/meetings" key={meeting.id}><div><strong>{meeting.title}</strong><span><Clock3 size={14} /> {formatDate(meeting.startsAt, { month: 'short', day: 'numeric' })}, {formatTime(meeting.startsAt)}</span></div><span className={`meeting-state meeting-state--${meeting.status}`}>{meeting.status.replace('_', ' ')}</span><ChevronRight size={17} /></Link>) : <div className="dashboard-empty"><UsersRound size={26} /><strong>No meetings yet</strong><span>Create an agenda when you are ready.</span></div>) : view === 'minutes' ? (meetingMinutes.length ? meetingMinutes.slice(0, 3).map((meeting) => <Link className="meeting-list__summary" to="/meetings" key={meeting.id}><div><strong>{meeting.title}</strong><span>{meeting.minutes}</span></div><ChevronRight size={17} /></Link>) : <div className="dashboard-empty"><Clock3 size={26} /><strong>No minutes yet</strong><span>Saved meeting notes will appear here.</span></div>) : (actionItems.length ? actionItems.slice(0, 3).map((task) => <Link className="meeting-list__summary" to="/tasks" key={task.id}><div><strong>{task.title}</strong><span>Due {formatDate(task.dueAt, { month: 'short', day: 'numeric' })}</span></div><ChevronRight size={17} /></Link>) : <div className="dashboard-empty"><CheckSquare2 size={26} /><strong>No action items</strong><span>Meeting follow-ups will appear here.</span></div>)}</div>
-      <Link className="panel-link" to={view === 'actions' ? '/tasks' : '/meetings'}>{view === 'actions' ? 'View all tasks' : 'View all meetings'} <ChevronRight size={16} /></Link>
-    </Panel>
-  )
-}
-
 function TasksPanel({ tasks, openCreate }: { tasks: Task[]; openCreate: (kind: EntityKind) => void }) {
   const { updateTaskStatus } = useWorkspace()
   return (
@@ -109,18 +103,16 @@ function SecureAccess() {
 export default function DashboardPage() {
   const { data, currentUser } = useWorkspace()
   const { openCreate } = useOutletContext<OutletActions>()
-  const events = buildCalendarSchedule(data.events, data.meetings, currentUser.id)
-  const meetings = data.meetings.filter((meeting) => !meeting.deletedAt && meeting.attendeeIds.includes(currentUser.id)).sort((a, b) => a.startsAt.localeCompare(b.startsAt))
+  const events = buildCalendarSchedule(data.events, data.meetings)
+  const meetings = data.meetings.filter((meeting) => !meeting.deletedAt).sort((a, b) => a.startsAt.localeCompare(b.startsAt))
   const tasks = data.tasks.filter((task) => !task.deletedAt).sort((a, b) => a.dueAt.localeCompare(b.dueAt))
   return (
     <div className="page dashboard-page">
       <div className="page-heading dashboard-heading"><div><h1>Welcome, {currentUser.name.split(' ')[0]}</h1></div><button className="button button--primary mobile-add-button" onClick={() => openCreate('task')}><Plus size={19} /> Add new</button></div>
       <div className="dashboard-grid">
-        <ComingUp events={events} tasks={tasks} />
+        <SchedulePanel events={events} meetings={meetings} tasks={tasks} openCreate={openCreate} />
         <FilesPanel openCreate={openCreate} />
         <QuickLinksPanel />
-        <TeamCalendar events={events} />
-        <MeetingsPanel meetings={meetings} tasks={tasks} openCreate={openCreate} />
         <TasksPanel tasks={tasks} openCreate={openCreate} />
         <SecureAccess />
       </div>

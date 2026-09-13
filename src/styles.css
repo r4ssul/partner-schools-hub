@@ -151,14 +151,33 @@ main { min-height: calc(100vh - 170px); }
 .empty-state--page { min-height: 320px; grid-column: 1 / -1; }
 .empty-state--compact { min-height: 220px; padding: 24px 16px; }
 
-.dashboard-grid { display: grid; grid-template-columns: 26% 24% 31% 16%; grid-template-areas: "coming files files links" "calendar meetings tasks security"; gap: 15px; align-items: stretch; }
-.dashboard-coming { grid-area: coming; min-height: 367px; }
-.dashboard-files { grid-area: files; min-height: 367px; }
-.dashboard-links { grid-area: links; min-height: 367px; }
-.dashboard-calendar { grid-area: calendar; min-height: 292px; }
-.dashboard-meetings { grid-area: meetings; min-height: 292px; }
-.dashboard-tasks { grid-area: tasks; min-height: 292px; }
-.dashboard-security { grid-area: security; min-height: 292px; background: linear-gradient(180deg, #fff 0%, #f3fafa 100%); }
+.dashboard-grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); grid-template-areas: "schedule schedule schedule schedule schedule schedule schedule schedule schedule security security security" "files files files files files files tasks tasks tasks tasks links links"; gap: 15px; align-items: stretch; }
+.dashboard-schedule { grid-area: schedule; min-height: 390px; }
+.dashboard-files { grid-area: files; min-height: 350px; }
+.dashboard-links { grid-area: links; min-height: 350px; }
+.dashboard-tasks { grid-area: tasks; min-height: 350px; }
+.dashboard-security { grid-area: security; min-height: 390px; background: linear-gradient(180deg, #fff 0%, #f3fafa 100%); }
+.schedule-summary { min-height: 43px; display: flex; align-items: center; justify-content: space-between; gap: 16px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.schedule-legend { display: flex; align-items: center; gap: 18px; color: var(--muted); font-size: 10.5px; }
+.schedule-legend span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.schedule-legend .event-dot { display: inline-block; }
+.schedule-columns { min-height: 0; flex: 1; display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(300px, 1fr); }
+.schedule-column { min-width: 0; display: flex; flex-direction: column; }
+.schedule-column--agenda { padding-right: 18px; }
+.schedule-column--meetings { padding-left: 18px; border-left: 1px solid var(--line); }
+.schedule-section-heading { min-height: 55px; display: flex; align-items: center; justify-content: space-between; gap: 14px; border-bottom: 1px solid var(--line); }
+.schedule-section-heading > div { min-width: 0; }
+.schedule-section-heading h3 { margin: 0; color: var(--ink); font-size: 12.5px; font-weight: 690; }
+.schedule-section-heading p { margin: 3px 0 0; overflow: hidden; color: var(--muted); font-size: 10.5px; text-overflow: ellipsis; white-space: nowrap; }
+.schedule-section-heading > a { min-height: 36px; display: inline-flex; align-items: center; gap: 3px; color: var(--teal-700); font-size: 11px; font-weight: 680; }
+.meeting-privacy { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-size: 9.5px; white-space: nowrap; }
+.dashboard-schedule .agenda-row__content { transition: background var(--motion-fast) ease; }
+.dashboard-schedule .agenda-row__content:hover { background: #fbfdfd; }
+.dashboard-schedule .event-rule--meeting { background: #64aaa7; }
+.dashboard-schedule .meeting-list { min-height: 0; }
+.dashboard-schedule .meeting-list > a { min-height: 62px; }
+.dashboard-schedule .schedule-empty { min-height: 160px; }
+.dashboard-schedule .panel-link { min-height: 39px; }
 .subtabs { display: flex; align-items: center; gap: 24px; height: 36px; border-bottom: 1px solid var(--line); }
 .subtabs button { align-self: stretch; position: relative; padding: 0; border: 0; background: transparent; color: #4e5964; font-size: 11.5px; }
 .subtabs button.is-active { color: var(--teal-800); font-weight: 700; }
@@ -230,10 +249,10 @@ main { min-height: calc(100vh - 170px); }
 
 .task-table { min-width: 0; }
 .task-table__header { display: grid; min-height: 30px; align-items: center; border-bottom: 1px solid var(--line); color: #65717b; font-size: 10.5px; }
-.task-table--compact .task-table__header { grid-template-columns: minmax(160px,1fr) 50px 74px 93px; }
+.task-table--compact .task-table__header { grid-template-columns: minmax(160px,1fr) 50px 74px 104px; }
 .task-row { min-height: 44px; display: grid; align-items: center; border-bottom: 1px solid var(--line); font-size: 10.5px; transition: background var(--motion-fast) ease, opacity var(--motion-fast) ease; }
 .task-row:hover { background: #fbfdfd; }
-.task-table--compact .task-row { grid-template-columns: 23px minmax(135px,1fr) 50px 74px 93px; }
+.task-table--compact .task-row { grid-template-columns: 23px minmax(135px,1fr) 50px 74px 104px; }
 .task-row > strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; font-weight: 580; }
 .task-row.is-done > strong, .task-row.is-done .task-title > strong { color: #8a949c; text-decoration: line-through; }
 .task-check { width: 17px; height: 17px; display: grid; place-items: center; padding: 0; border-radius: 4px; border: 1px solid #9ba7af; background: #fff; color: #fff; font-size: 11px; }
@@ -574,7 +593,7 @@ main { min-height: calc(100vh - 170px); }
 @media (max-width: 1220px) {
   .primary-nav { gap: 22px; }
   .topbar-search { min-width: 150px; }
-  .dashboard-grid { grid-template-columns: 31% 1fr 23%; grid-template-areas: "coming files links" "calendar meetings security" "tasks tasks tasks"; }
+  .dashboard-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-areas: "schedule schedule security" "files files links" "tasks tasks tasks"; }
   .dashboard-tasks { min-height: 280px; }
   .file-table--compact .file-table__header, .file-table--compact .file-row { grid-template-columns: minmax(190px,1fr) 115px 125px 28px; }
   .task-table--full .task-table__header { grid-template-columns: minmax(220px,1.4fr) minmax(130px,.7fr) 80px 110px 110px 40px; }
@@ -597,9 +616,10 @@ main { min-height: calc(100vh - 170px); }
   main { min-height: calc(100vh - 130px); }
   .page { padding: 20px 16px 100px; }
   .site-footer { display: none; }
-  .dashboard-grid { grid-template-columns: 1fr 1fr; grid-template-areas: "coming files" "tasks tasks" "calendar meetings" "links security"; }
-  .dashboard-coming, .dashboard-files, .dashboard-links { min-height: 360px; }
-  .dashboard-calendar, .dashboard-meetings, .dashboard-tasks, .dashboard-security { min-height: 280px; }
+  .dashboard-grid { grid-template-columns: 1fr 1fr; grid-template-areas: "schedule schedule" "files files" "tasks tasks" "links security"; }
+  .dashboard-schedule, .dashboard-files { min-height: 370px; }
+  .dashboard-links, .dashboard-tasks, .dashboard-security { min-height: 280px; }
+  .schedule-columns { grid-template-columns: minmax(0, 1.35fr) minmax(280px, 1fr); }
   .calendar-layout, .master-detail { grid-template-columns: 1fr; }
   .agenda-sidebar { order: -1; }
   .agenda-sidebar__list { display: grid; grid-template-columns: repeat(2,1fr); gap: 0 15px; }
@@ -642,21 +662,28 @@ main { min-height: calc(100vh - 170px); }
   .dashboard-heading { margin-bottom: 13px; }
   .dashboard-heading h1 { font-size: 25px; }
   .mobile-add-button { display: inline-flex; }
-  .dashboard-grid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    grid-template-areas: "coming coming coming" "files files files" "tasks tasks tasks" "calendar meetings links" "security security security";
-    gap: 13px 8px;
-  }
-  .dashboard-coming { min-height: 330px; }
+  .dashboard-grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: "schedule" "files" "tasks" "links" "security"; gap: 13px; }
+  .dashboard-schedule { min-height: 0; }
   .dashboard-files { min-height: 350px; }
   .dashboard-tasks { min-height: 260px; }
-  .dashboard-calendar, .dashboard-meetings, .dashboard-links { min-height: 198px; }
+  .dashboard-links { min-height: 198px; }
   .dashboard-security { min-height: 165px; }
   .panel__header { min-height: 60px; padding: 0 18px; }
   .panel__title h2 { font-size: 16px; }
   .panel__body { padding: 0 17px 11px; }
   .panel__action .button span { display: none; }
+  .dashboard-schedule .panel__action .button { width: 44px; height: 44px; justify-content: center; padding: 0; }
+  .schedule-summary { min-height: 50px; }
+  .schedule-legend { gap: 10px; font-size: 9.5px; }
+  .schedule-columns { grid-template-columns: minmax(0, 1fr); }
+  .schedule-column--agenda { padding-right: 0; }
+  .schedule-column--meetings { margin-top: 8px; padding-left: 0; border-top: 1px solid var(--line); border-left: 0; }
+  .schedule-section-heading { min-height: 61px; }
+  .schedule-section-heading > a { min-height: 44px; }
+  .meeting-privacy { font-size: 9px; }
+  .dashboard-schedule .subtabs { height: 44px; }
+  .dashboard-schedule .subtabs button { min-height: 44px; }
+  .dashboard-schedule .panel-link { min-height: 44px; }
   .agenda-row__content { grid-template-columns: 8px 52px 2px minmax(0,1fr) 26px; min-height: 63px; }
   .agenda-row__content strong { font-size: 11.5px; }
   .file-table--compact .file-table__header { display: none; }
@@ -924,8 +951,8 @@ main { min-height: calc(100vh - 170px); }
   .feature-page .page-heading { flex-wrap: wrap; }
   .feature-page .page-heading > div { min-width: 0; flex: 1; }
   .feature-page .page-heading p { max-width: none; }
-  .dashboard-grid { grid-template-columns: minmax(0,1fr); grid-template-areas: "coming" "files" "tasks" "calendar" "meetings" "links" "security"; gap: 13px; }
-  .dashboard-coming, .dashboard-files, .dashboard-tasks, .dashboard-calendar, .dashboard-meetings, .dashboard-links, .dashboard-security { min-height: 0; }
+  .dashboard-grid { grid-template-columns: minmax(0,1fr); grid-template-areas: "schedule" "files" "tasks" "links" "security"; gap: 13px; }
+  .dashboard-schedule, .dashboard-files, .dashboard-tasks, .dashboard-links, .dashboard-security { min-height: 0; }
   .dashboard-calendar .panel__header, .dashboard-meetings .panel__header, .dashboard-links .panel__header { min-height: 57px; padding: 0 16px; }
   .dashboard-calendar .panel__title, .dashboard-meetings .panel__title, .dashboard-links .panel__title { gap: 11px; }
   .dashboard-calendar .panel__title h2, .dashboard-meetings .panel__title h2, .dashboard-links .panel__title h2 { font-size: 16px; white-space: normal; }
@@ -972,7 +999,7 @@ main { min-height: calc(100vh - 170px); }
   .task-table--compact .task-row { grid-template-columns: 36px minmax(0,1fr) 122px; min-height: 68px; padding: 7px 4px; }
   .task-table--compact .task-row > :nth-child(3), .task-table--compact .task-row > :nth-child(4) { display: none; }
   .task-table--compact .task-check { width: 36px; height: 36px; }
-  .task-table--compact .status-select { width: 122px; min-height: 44px; font-size: 16px; }
+  .task-table--compact .status-select { width: 122px; min-height: 44px; font-size: 13px; }
   .creation-modal { max-height: 94dvh; }
   .creation-modal .modal__header { padding: 16px; }
   .creation-modal .modal__header h2 { font-size: 21px; }

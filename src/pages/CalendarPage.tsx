@@ -11,11 +11,11 @@ import type { EntityKind } from '../types'
 interface OutletActions { openCreate: (kind: EntityKind) => void }
 
 export default function CalendarPage() {
-  const { data, currentUser, archiveItem } = useWorkspace()
+  const { data, archiveItem } = useWorkspace()
   const { openCreate } = useOutletContext<OutletActions>()
   const [cursor, setCursor] = useState(new Date())
   const [selected, setSelected] = useState<CalendarScheduleItem | null>(null)
-  const schedule = useMemo(() => buildCalendarSchedule(data.events, data.meetings, currentUser.id), [data.events, data.meetings, currentUser.id])
+  const schedule = useMemo(() => buildCalendarSchedule(data.events, data.meetings), [data.events, data.meetings])
   const monthStart = startOfMonth(cursor)
   const gridStart = startOfWeek(monthStart)
   const gridEnd = endOfWeek(endOfMonth(cursor))
@@ -33,7 +33,7 @@ export default function CalendarPage() {
         </section>
         <aside className="content-surface agenda-sidebar"><div className="surface-toolbar"><div><h2>Upcoming</h2><span>{upcoming.length} scheduled</span></div><CalendarDays size={22} /></div><div className="agenda-sidebar__list">{upcoming.length ? upcoming.map((item) => <button key={`${item.kind}-${item.id}`} onClick={() => setSelected(item)}><time><strong>{formatDate(item.startsAt, { month: 'short' })}</strong><span>{formatDate(item.startsAt, { day: 'numeric' })}</span></time><div><strong>{item.title}</strong><span>{item.kind === 'meeting' ? 'Meeting · ' : ''}{formatTime(item.startsAt)} · {item.location || 'No location'}</span></div><ChevronRight size={17} /></button>) : <div className="empty-state empty-state--compact"><CalendarDays size={30} /><h3>No schedule yet</h3><p>Create an event or meeting to start the calendar.</p></div>}</div></aside>
       </div>
-      <Modal open={Boolean(selected)} title={selected?.title || 'Schedule item'} description={selected?.kind === 'meeting' ? 'Private meeting · visible only to attendees' : 'Shared event · visible to everyone'} onClose={() => setSelected(null)}>
+      <Modal open={Boolean(selected)} title={selected?.title || 'Schedule item'} description={selected?.kind === 'meeting' ? 'Shared meeting · visible to everyone' : 'Shared event · visible to everyone'} onClose={() => setSelected(null)}>
         {selected ? <div className="detail-stack"><p>{selected.description || `No ${selected.kind === 'meeting' ? 'agenda' : 'description'} added.`}</p><dl className="detail-list"><div><dt><Clock3 size={17} />When</dt><dd>{formatDate(selected.startsAt)} · {formatTime(selected.startsAt)}–{formatTime(selected.endsAt)}</dd></div><div><dt><MapPin size={17} />Location</dt><dd>{selected.location || 'Not set'}</dd></div><div><dt><Users size={17} />Attendees</dt><dd>{selected.attendeeIds.length} team members</dd></div></dl><div className="modal-footer"><button className="button button--danger" onClick={() => { void archiveItem(selected.kind, selected.id); setSelected(null) }}><Trash2 size={17} /> Move to trash</button></div></div> : null}
       </Modal>
     </div>

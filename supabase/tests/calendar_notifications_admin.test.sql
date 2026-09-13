@@ -1,4 +1,4 @@
--- Transaction-only verification for shared events, private meetings,
+-- Transaction-only verification for shared events and meetings,
 -- assignment notifications, preferences, and developer-only full log clearing.
 begin;
 create extension if not exists pgtap with schema extensions;
@@ -30,7 +30,7 @@ insert into public.notification_preferences(workspace_id,user_id,email_enabled) 
 set local role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000009071',true);
 insert into tap_output(result) select lives_ok($q$select public.create_workspace_item(-9071, '{"kind":"event","title":"Everyone <script>alert(1)</script>","startDate":"2026-09-08T01:00:00Z","endDate":"2026-09-08T02:00:00Z","attendeeIds":["00000000-0000-4000-8000-000000009072"]}')$q$, 'event creation succeeds');
-insert into tap_output(result) select lives_ok($q$select public.create_workspace_item(-9071, '{"kind":"meeting","title":"Private attendee meeting","startDate":"2026-09-09T01:00:00Z","endDate":"2026-09-09T02:00:00Z","attendeeIds":["00000000-0000-4000-8000-000000009072"]}')$q$, 'meeting creation succeeds');
+insert into tap_output(result) select lives_ok($q$select public.create_workspace_item(-9071, '{"kind":"meeting","title":"Shared team meeting","startDate":"2026-09-09T01:00:00Z","endDate":"2026-09-09T02:00:00Z","attendeeIds":["00000000-0000-4000-8000-000000009072"]}')$q$, 'meeting creation succeeds');
 insert into tap_output(result) select lives_ok($q$select public.create_workspace_item(-9071, '{"kind":"task","title":"Assigned follow-up","dueDate":"2026-09-10T01:00:00Z","assigneeId":"00000000-0000-4000-8000-000000009072"}')$q$, 'task creation succeeds');
 insert into tap_output(result) select is((select count(*)::int from public.events where workspace_id=-9071),1,'creator sees shared event');
 insert into tap_output(result) select is((select count(*)::int from public.meetings where workspace_id=-9071),1,'creator is automatically a meeting attendee');
@@ -45,13 +45,13 @@ insert into tap_output(result) select ok((select bool_and(body_html not like '%<
 set local role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000009072',true);
 insert into tap_output(result) select is((select count(*)::int from public.events where workspace_id=-9071),1,'attendee sees shared event');
-insert into tap_output(result) select is((select count(*)::int from public.meetings where workspace_id=-9071),1,'selected attendee sees private meeting');
+insert into tap_output(result) select is((select count(*)::int from public.meetings where workspace_id=-9071),1,'selected attendee sees shared meeting');
 insert into tap_output(result) select is((select count(*)::int from public.meeting_attendees where workspace_id=-9071),2,'attendee can see the meeting participant list');
 
 select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000009073',true);
 insert into tap_output(result) select is((select count(*)::int from public.events where workspace_id=-9071),1,'non-attendee also sees shared event');
-insert into tap_output(result) select is((select count(*)::int from public.meetings where workspace_id=-9071),0,'non-attendee cannot see private meeting');
-insert into tap_output(result) select is((select count(*)::int from public.meeting_attendees where workspace_id=-9071),0,'non-attendee cannot infer meeting participants');
+insert into tap_output(result) select is((select count(*)::int from public.meetings where workspace_id=-9071),1,'non-attendee also sees shared meeting');
+insert into tap_output(result) select is((select count(*)::int from public.meeting_attendees where workspace_id=-9071),2,'workspace member sees the meeting participant list');
 insert into tap_output(result) select throws_ok($q$select public.clear_workspace_log(-9071,'all')$q$,'P0001','Log-clearing permission required','Admin cannot clear every log');
 
 select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000009071',true);
