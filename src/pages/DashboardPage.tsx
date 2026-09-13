@@ -35,7 +35,7 @@ function SchedulePanel({ events, meetings, tasks, openCreate }: { events: Calend
   const meetingCount = events.filter((event) => event.kind === 'meeting').length
 
   return (
-    <Panel title="Schedule & meetings" icon={CalendarDays} className="dashboard-schedule" action={<><button className="button button--secondary button--small" onClick={() => openCreate('event')}><Plus size={16} /><span>New event</span></button><button className="button button--secondary button--small" onClick={() => openCreate('meeting')}><UsersRound size={16} /><span>New meeting</span></button></>}>
+    <Panel title="Schedule & meetings" icon={CalendarDays} className="dashboard-schedule" action={<><button className="button button--secondary button--small" aria-label="New event" title="New event" onClick={() => openCreate('event')}><Plus size={16} /><span>New event</span></button><button className="button button--secondary button--small" aria-label="New meeting" title="New meeting" onClick={() => openCreate('meeting')}><UsersRound size={16} /><span>New meeting</span></button></>}>
       <div className="schedule-summary" aria-label="Schedule summary">
         <span className="date-chip">Upcoming</span>
         <div className="schedule-legend"><span><i className="event-dot" /> {sharedEventCount} team {sharedEventCount === 1 ? 'event' : 'events'}</span><span><i className="event-dot event-dot--meeting" /> {meetingCount} team {meetingCount === 1 ? 'meeting' : 'meetings'}</span></div>
