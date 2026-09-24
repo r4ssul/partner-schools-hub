@@ -39,6 +39,7 @@ export interface DocumentVersion {
   id: string
   version: number
   storagePath: string
+  storageProvider: 'r2' | 'supabase' | 'preview'
   size: number
   mimeType: string
   uploadedBy: string | null

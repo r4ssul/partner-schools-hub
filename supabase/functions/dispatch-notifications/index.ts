@@ -3,6 +3,8 @@ import { handleOptions, json } from '../_shared/http.ts'
 
 interface OutboxRow {
   id: number
+  workspace_id: number
+  user_id: string
   recipient_email: string
   subject: string
   body_html: string
@@ -41,13 +43,30 @@ Deno.serve(async (request) => {
   }
   if (!resendKey || !emailFrom) return json({ error: 'Email delivery provider is not configured', queued: true }, 503)
 
-  let query = admin.from('notification_outbox').select('id,recipient_email,subject,body_html,attempts').is('processed_at', null).lte('available_at', new Date().toISOString()).order('id').limit(50)
+  let query = admin.from('notification_outbox').select('id,workspace_id,user_id,recipient_email,subject,body_html,attempts').is('processed_at', null).lte('available_at', new Date().toISOString()).order('id').limit(50)
   if (workspaceId) query = query.eq('workspace_id', workspaceId)
   const { data, error } = await query
   if (error) return json({ error: error.message }, 500)
   const rows = (data || []) as OutboxRow[]
   const results = await Promise.all(rows.map(async (row) => {
     try {
+      // A queued message must not outlive the recipient's workspace access or
+      // go to an address that is no longer attached to that account.
+      const { data: member, error: memberError } = await admin.from('workspace_members')
+        .select('active,profiles(email)')
+        .eq('workspace_id', row.workspace_id)
+        .eq('user_id', row.user_id)
+        .maybeSingle()
+      if (memberError) throw memberError
+      const profile = Array.isArray(member?.profiles) ? member.profiles[0] : member?.profiles
+      if (!member?.active || profile?.email?.toLowerCase() !== row.recipient_email.toLowerCase()) {
+        await admin.from('notification_outbox').update({
+          processed_at: new Date().toISOString(),
+          attempts: row.attempts + 1,
+          last_error: 'Recipient no longer has access or this email address',
+        }).eq('id', row.id)
+        return { id: row.id, status: 'skipped' }
+      }
       const response = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },

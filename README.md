@@ -33,6 +33,7 @@ The browser suite builds in test mode, enables the isolated preview, and runs at
    supabase link --project-ref YOUR_PROJECT_REF
    supabase db push
    supabase functions deploy manage-members
+   supabase functions deploy file-access
    supabase functions deploy dispatch-notifications --no-verify-jwt
    ```
 
@@ -89,6 +90,8 @@ A fresh `E2E_INVITE_URL` and `E2E_INVITED_PASSWORD` enable the invitation-accept
 - React, Vite, TypeScript, React Router, TanStack Query, React Hook Form, and Zod.
 - Supabase Auth, Postgres, RLS, Realtime, Edge Functions, and Cron.
 - Private Cloudflare R2 document storage behind an authenticated Worker, with a 50 MB limit, MIME allowlist, immutable versions, membership checks, and file-access auditing.
+- New uploads use R2. Older files in the private Supabase bucket are streamed through `file-access` after a fresh login and workspace check; the app does not issue shareable download URLs. Keep R2 `r2.dev` access and direct bucket custom domains disabled.
+- Database constraints keep folders, documents, versions, attendees, and task links within their workspace. Browser sessions cannot insert file versions or run internal reminder and trigger functions. The notification sender skips queued email if the recipient has lost membership or changed address.
 - Both Super Admins manage membership, workspace settings, and audit review. Only Rassul has the database-controlled `can_clear_logs` permission. Both Super Admin accounts are protected from in-app deactivation, and the database protects the final active Super Admin.
 - Self-service name, organisation, job title, and phone details; invitees must be assigned an organisation by the super administrator.
 - Administrator-managed folders with recoverable 30-day soft deletion; files remain visible from All files if their folder is archived.
@@ -108,7 +111,7 @@ Deactivation retains the Auth account and reserves its email. Only the active Su
 
 Deletion removes login/profile/membership and dependent private records. Shared content, file versions/storage paths, chat messages and audit history remain; nullable author references are shown as “Former member,” and tasks become unassigned. Old membership audit entries remain until separately cleared. The email can then receive a fresh invitation as a new identity. The migration does not delete R2 objects. Run `supabase/tests/former_members.test.sql` to verify directory permissions and content-preserving deletion with rollback-only fixtures.
 
-GitHub Pages is the only frontend deployment target. The obsolete local Sites manifest was removed; Supabase and Cloudflare R2 remain the sources of truth. The remote legacy Sites publication must be deleted through the Sites interface because the connector has no delete operation.
+GitHub Pages is the only frontend deployment target. The obsolete local Sites manifest was removed; Supabase and Cloudflare R2 remain the sources of truth. The remote legacy Sites copy is owner-only as of 2026-09-24 and returns 401 to anonymous visitors. It has no live Supabase or R2 connection and can be removed later through the Sites interface.
 
 The production workflow always disables local preview. Missing Supabase configuration must never open a demo workspace publicly.
 
@@ -116,12 +119,15 @@ The production workflow always disables local preview. Missing Supabase configur
 
 Run the transaction-only database suite with `supabase test db` locally, or `supabase db query --linked --file supabase/tests/roles_chat_creation.test.sql` against a linked project. It creates its own uniquely identified fixtures and rolls back every row. It checks both management identities, the separate log-clearing capability, Admin restrictions, non-member/deactivated access, sender identity, retry deduplication, read-state privacy, and cross-workspace creation links.
 
+Run `supabase db query --linked --file supabase/tests/private_file_boundaries.test.sql` to verify that file versions cannot be forged, cross-workspace object paths are rejected, and anonymous users cannot call private storage helpers.
+
 The hosted invitation subject/body are deployed separately with `scripts/sync-invite-template.mjs`, which patches only those two fields and verifies the saved result. As of 2026-09-04, the live project's update is blocked by Supabase's free-tier/default-provider restriction; the branded template is ready but is **not live** until custom SMTP is configured or the plan is upgraded and the script succeeds. The default sender remains Supabase Auth until custom SMTP is configured. Previously delivered emails are unchanged; test with a fresh invitation.
 
 ## Release checklist
 
 - Confirm the production build opens `/login` when Supabase is absent; it must never enter local preview mode.
 - Confirm public signup is disabled, SMTP is active, and only trusted redirect URLs are configured.
+- Verify R2 public development URL access and direct bucket domains are disabled in Cloudflare R2 → Bucket → Settings; the Worker must be the only download route.
 - Verify the Tokyo region before the first migration.
 - Run `npm ci`, `npm run check`, `npm audit`, `supabase test db`, and the live browser suite.
 - Confirm GitHub Pages has the Supabase and R2 endpoint secrets and no longer builds in showcase mode.

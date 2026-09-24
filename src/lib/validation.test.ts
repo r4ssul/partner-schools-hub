@@ -28,7 +28,7 @@ describe('member profile validation', () => {
 
 describe('login validation', () => {
   it('allows an existing account to submit any non-empty password to Supabase', () => {
-    expect(loginSchema.safeParse({ email: 'admin@example.com', password: '62664' }).success).toBe(true)
+    expect(loginSchema.safeParse({ email: 'admin@example.com', password: 'short' }).success).toBe(true)
     expect(loginSchema.safeParse({ email: 'admin@example.com', password: '' }).success).toBe(false)
   })
 })

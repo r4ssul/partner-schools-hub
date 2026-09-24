@@ -4,7 +4,7 @@ import type { RealtimeChannel } from '@supabase/supabase-js'
 import { addHours } from 'date-fns'
 import { createInitialWorkspaceData } from '../data/seed'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
-import { isR2FileApiConfigured, uploadFileToR2 } from '../lib/fileApi'
+import { uploadFileToR2 } from '../lib/fileApi'
 import { canClearAuditLog, canDeactivateMember, canDeleteFormerMember, canManageMembership, canViewAuditLog, isTrashExpired } from '../lib/policies'
 import { validateUpload } from '../lib/validation'
 import { fromTokyoInput } from '../lib/date'
@@ -176,7 +176,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         members: remoteMembers,
         settings: { name: workspace.data!.name, timezone: workspace.data!.timezone, emailNotifications: preferences.data?.email_enabled ?? true },
         folders: (folders.data ?? []).map((row) => ({ id: String(row.id), name: row.name, parentId: row.parent_id ? String(row.parent_id) : null, createdAt: mapStamp(row.created_at), updatedAt: mapStamp(row.updated_at), deletedAt: row.deleted_at })),
-        documents: (documents.data ?? []).map((row) => ({ id: String(row.id), name: row.name, folderId: String(row.folder_id), ownerId: row.owner_id, updatedAt: mapStamp(row.updated_at), deletedAt: row.deleted_at, versions: (row.document_versions ?? []).map((version: { id: number; version_number: number; storage_path: string; size_bytes: number; mime_type: string; uploaded_by: string; created_at: string }) => ({ id: String(version.id), version: version.version_number, storagePath: version.storage_path, size: version.size_bytes, mimeType: version.mime_type, uploadedBy: version.uploaded_by, createdAt: version.created_at })) })),
+        documents: (documents.data ?? []).map((row) => ({ id: String(row.id), name: row.name, folderId: String(row.folder_id), ownerId: row.owner_id, updatedAt: mapStamp(row.updated_at), deletedAt: row.deleted_at, versions: (row.document_versions ?? []).sort((a: { version_number: number }, b: { version_number: number }) => a.version_number - b.version_number).map((version: { id: number; version_number: number; storage_path: string; storage_provider: 'r2' | 'supabase'; size_bytes: number; mime_type: string; uploaded_by: string; created_at: string }) => ({ id: String(version.id), version: version.version_number, storagePath: version.storage_path, storageProvider: version.storage_provider ?? 'supabase', size: version.size_bytes, mimeType: version.mime_type, uploadedBy: version.uploaded_by, createdAt: version.created_at })) })),
         events: (events.data ?? []).map((row) => ({ id: String(row.id), title: row.title, description: row.description, startsAt: row.starts_at, endsAt: row.ends_at, location: row.location, attendeeIds: (row.event_attendees ?? []).map((attendee: { user_id: string }) => attendee.user_id), documentIds: row.document_ids?.map(String) ?? [], createdBy: row.created_by, updatedAt: mapStamp(row.updated_at), deletedAt: row.deleted_at })),
         meetings: (meetings.data ?? []).map((row) => ({ id: String(row.id), title: row.title, agenda: row.agenda, minutes: row.minutes, startsAt: row.starts_at, endsAt: row.ends_at, location: row.location, attendeeIds: (row.meeting_attendees ?? []).map((attendee: { user_id: string }) => attendee.user_id), documentIds: row.document_ids?.map(String) ?? [], status: row.status, createdBy: row.created_by, updatedAt: mapStamp(row.updated_at), deletedAt: row.deleted_at })),
         tasks: (tasks.data ?? []).map((row) => ({ id: String(row.id), title: row.title, assigneeId: row.assignee_id, dueAt: row.due_at, status: row.status, priority: row.priority, notes: row.notes, sourceMeetingId: row.source_meeting_id ? String(row.source_meeting_id) : null, sourceEventId: row.source_event_id ? String(row.source_event_id) : null, documentIds: (row.task_documents ?? []).map((document: { document_id: number }) => String(document.document_id)), createdBy: row.created_by, updatedAt: mapStamp(row.updated_at), deletedAt: row.deleted_at })),
@@ -278,25 +278,15 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     let documentId = createId('file')
     let versionId = createId('version')
     let storagePath = `demo/${documentId}/${file.name}`
+    let storageProvider: 'r2' | 'preview' = 'preview'
 
     if (supabase && workspaceId) {
-      if (isR2FileApiConfigured) {
-        const result = await uploadFileToR2(file, { workspaceId, folderId: Number(targetFolderId) })
-        if (result.error || !result.data) return result.error || 'Unable to upload file.'
-        documentId = String(result.data.documentId)
-        versionId = String(result.data.versionId)
-        storagePath = result.data.path
-      } else {
-        const { data: signed, error: signedError } = await supabase.functions.invoke('file-access', {
-          body: { action: 'create-upload', workspaceId, folderId: Number(targetFolderId), fileName: file.name, mimeType: file.type, sizeBytes: file.size },
-        })
-        if (signedError) return signedError.message
-        const { error: uploadError } = await supabase.storage.from('company-documents').uploadToSignedUrl(signed.path, signed.token, file)
-        if (uploadError) return uploadError.message
-        documentId = String(signed.documentId)
-        versionId = String(signed.versionId)
-        storagePath = signed.path
-      }
+      const result = await uploadFileToR2(file, { workspaceId, folderId: Number(targetFolderId) })
+      if (result.error || !result.data) return result.error || 'Unable to upload file.'
+      documentId = String(result.data.documentId)
+      versionId = String(result.data.versionId)
+      storagePath = result.data.path
+      storageProvider = 'r2'
     } else {
       setUploadUrls((previous) => new Map(previous).set(documentId, URL.createObjectURL(file)))
     }
@@ -308,7 +298,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       ownerId: currentUser.id,
       updatedAt: now,
       deletedAt: null,
-      versions: [{ id: versionId, version: 1, storagePath, size: file.size, mimeType: file.type, uploadedBy: currentUser.id, createdAt: now }],
+      versions: [{ id: versionId, version: 1, storagePath, storageProvider, size: file.size, mimeType: file.type, uploadedBy: currentUser.id, createdAt: now }],
     }
     setData((previous) => addAudit({ ...previous, documents: [document, ...previous.documents.filter((item) => item.id !== document.id)] }, 'uploaded', 'file', file.name))
     return null
@@ -322,23 +312,14 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     const now = new Date().toISOString()
     let storagePath = `demo/${documentId}/${Date.now()}-${file.name}`
     let versionId = createId('version')
+    let storageProvider: 'r2' | 'preview' = 'preview'
     const workspaceId = workspaceIdRef.current
     if (supabase && workspaceId) {
-      if (isR2FileApiConfigured) {
-        const result = await uploadFileToR2(file, { workspaceId, documentId: Number(documentId) })
-        if (result.error || !result.data) return result.error || 'Unable to upload version.'
-        storagePath = result.data.path
-        versionId = String(result.data.versionId)
-      } else {
-        const { data: signed, error: signedError } = await supabase.functions.invoke('file-access', {
-          body: { action: 'create-version', workspaceId, documentId: Number(documentId), fileName: file.name, mimeType: file.type, sizeBytes: file.size },
-        })
-        if (signedError) return signedError.message
-        const { error: uploadError } = await supabase.storage.from('company-documents').uploadToSignedUrl(signed.path, signed.token, file)
-        if (uploadError) return uploadError.message
-        storagePath = signed.path
-        versionId = String(signed.versionId)
-      }
+      const result = await uploadFileToR2(file, { workspaceId, documentId: Number(documentId) })
+      if (result.error || !result.data) return result.error || 'Unable to upload version.'
+      storagePath = result.data.path
+      versionId = String(result.data.versionId)
+      storageProvider = 'r2'
     } else {
       setUploadUrls((previous) => new Map(previous).set(documentId, URL.createObjectURL(file)))
     }
@@ -347,7 +328,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         ...document,
         name: file.name,
         updatedAt: now,
-        versions: [...document.versions, { id: versionId, version: document.versions.length + 1, storagePath, size: file.size, mimeType: file.type, uploadedBy: currentUser.id, createdAt: now }],
+        versions: [...document.versions, { id: versionId, version: document.versions.length + 1, storagePath, storageProvider, size: file.size, mimeType: file.type, uploadedBy: currentUser.id, createdAt: now }],
       } : document)
       return addAudit({ ...previous, documents }, 'added version', 'file', file.name)
     })

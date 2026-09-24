@@ -1,6 +1,8 @@
 import { supabase } from './supabase'
 
 const fileApiUrl = ((import.meta.env.VITE_R2_FILE_API_URL as string | undefined) || '').replace(/\/+$/, '')
+const supabaseUrl = ((import.meta.env.VITE_SUPABASE_URL as string | undefined) || '').replace(/\/+$/, '')
+const publishableKey = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined) || ''
 
 export const isR2FileApiConfigured = Boolean(fileApiUrl)
 
@@ -62,6 +64,22 @@ export async function downloadFileFromR2(versionId: number): Promise<{ url: stri
     if (!token) return { url: null, error: 'Your session has expired. Sign in again.' }
     const response = await fetch(`${fileApiUrl}/download?versionId=${encodeURIComponent(versionId)}`, {
       headers: { Authorization: `Bearer ${token}` },
+    })
+    if (!response.ok) return { url: null, error: await errorMessage(response) }
+    return { url: URL.createObjectURL(await response.blob()), error: null }
+  } catch (reason) {
+    return { url: null, error: reason instanceof Error ? reason.message : 'Unable to reach file storage.' }
+  }
+}
+
+export async function downloadFileFromSupabase(versionId: number): Promise<{ url: string | null; error: string | null }> {
+  if (!supabaseUrl || !publishableKey) return { url: null, error: 'File storage is not configured.' }
+  try {
+    const token = await accessToken()
+    if (!token) return { url: null, error: 'Your session has expired. Sign in again.' }
+    const response = await fetch(`${supabaseUrl}/functions/v1/file-access?versionId=${encodeURIComponent(versionId)}`, {
+      headers: { Authorization: `Bearer ${token}`, apikey: publishableKey },
+      cache: 'no-store',
     })
     if (!response.ok) return { url: null, error: await errorMessage(response) }
     return { url: URL.createObjectURL(await response.blob()), error: null }
