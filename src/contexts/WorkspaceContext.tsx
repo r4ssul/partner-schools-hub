@@ -133,14 +133,15 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       if (membership.error || !membership.data) throw new Error(membership.error?.message || 'No active workspace membership')
       const workspaceId = Number(membership.data.workspace_id)
       workspaceIdRef.current = workspaceId
+      // Qualify embeds because the workspace-scoped foreign keys coexist with legacy single-column keys.
       const [workspace, profiles, folders, documents, events, meetings, tasks, links, notifications, preferences, audit] = await Promise.all([
         client.from('workspaces').select('name, timezone').eq('id', workspaceId).single(),
         client.from('workspace_members').select('user_id, role, can_clear_logs, active, joined_at, profiles(full_name,email,avatar_color,organization,job_title,phone)').eq('workspace_id', workspaceId),
         client.from('folders').select('*').eq('workspace_id', workspaceId),
-        client.from('documents').select('*, document_versions(*)').eq('workspace_id', workspaceId),
-        client.from('events').select('*, event_attendees(user_id)').eq('workspace_id', workspaceId),
-        client.from('meetings').select('*, meeting_attendees(user_id)').eq('workspace_id', workspaceId),
-        client.from('tasks').select('*, task_documents(document_id)').eq('workspace_id', workspaceId),
+        client.from('documents').select('*, document_versions!versions_document_workspace_fk(*)').eq('workspace_id', workspaceId),
+        client.from('events').select('*, event_attendees!event_attendees_workspace_fk(user_id)').eq('workspace_id', workspaceId),
+        client.from('meetings').select('*, meeting_attendees!meeting_attendees_workspace_fk(user_id)').eq('workspace_id', workspaceId),
+        client.from('tasks').select('*, task_documents!task_documents_task_workspace_fk(document_id)').eq('workspace_id', workspaceId),
         client.from('quick_links').select('*').eq('workspace_id', workspaceId),
         client.from('notifications').select('*').eq('user_id', user!.id).order('created_at', { ascending: false }),
         client.from('notification_preferences').select('email_enabled').eq('workspace_id', workspaceId).eq('user_id', user!.id).maybeSingle(),
